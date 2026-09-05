@@ -1,0 +1,314 @@
+[
+  {
+    "id": "p-001",
+    "slug": "oversized-tee",
+    "name": "MANGOSTA OVERSIZED TEE",
+    "category": "t-shirts",
+    "price": 68,
+    "currency": "INR",
+    "description": "A boxy, heavyweight tee cut from 240gsm combed cotton. Dropped shoulders, garment-dyed for a worn-in hand-feel from the first wear.",
+    "details": [
+      "240gsm heavyweight combed cotton",
+      "Garment-dyed, enzyme-washed",
+      "Dropped shoulder, boxy fit",
+      "Reinforced collar seam",
+      "Made in limited batches"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Bone",
+        "hex": "#e8e3d8"
+      },
+      {
+        "name": "Graphite",
+        "hex": "#3a3833"
+      },
+      {
+        "name": "Green",
+        "hex": "#8c8880"
+      }
+    ],
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "images": [],
+    "dropLabel": "DROP 01",
+    "isNew": true,
+    "inventory": 42
+  },
+  {
+    "id": "p-002",
+    "slug": "heavy-hoodie",
+    "name": "MANGOSTA HEAVY HOODIE",
+    "category": "hoodies",
+    "price": 148,
+    "currency": "INR",
+    "description": "480gsm brushed fleece built for weight and drape. Oversized hood, kangaroo pocket reinforced at the stress points, ribbed cuffs that hold their shape.",
+    "details": [
+      "480gsm brushed-back fleece",
+      "Oversized three-panel hood",
+      "Reinforced kangaroo pocket",
+      "Ribbed cuff and hem",
+      "Embroidered mongoose mark"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Graphite",
+        "hex": "#3a3833"
+      },
+      {
+        "name": "Mango",
+        "hex": "#c4ff61"
+      }
+    ],
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "images": [
+    ],
+    "dropLabel": "DROP 01",
+    "isNew": true,
+    "inventory": 27
+  },
+  {
+    "id": "p-003",
+    "slug": "cargo",
+    "name": "MANGOSTA CARGO",
+    "category": "pants",
+    "price": 132,
+    "currency": "INR",
+    "description": "Technical cotton-nylon cargo with articulated knees and six utility pockets. Tapered leg, adjustable hem, built to move.",
+    "details": [
+      "Cotton-nylon ripstop blend",
+      "Six-pocket utility layout",
+      "Articulated knee construction",
+      "Adjustable drawcord hem",
+      "Tapered through the leg"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Stone",
+        "hex": "#8c8880"
+      }
+    ],
+    "sizes": [
+      "28",
+      "30",
+      "32",
+      "34",
+      "36",
+      "38"
+    ],
+    "images": [
+    ],
+    "dropLabel": "DROP 01",
+    "inventory": 33
+  },
+  {
+    "id": "p-004",
+    "slug": "signature-jacket",
+    "name": "MANGOSTA SIGNATURE JACKET",
+    "category": "jackets",
+    "price": 288,
+    "compareAtPrice": 340,
+    "currency": "INR",
+    "description": "The flagship outer layer. Bonded shell with a brushed interior, asymmetric zip, and hardware finished in brushed gunmetal.",
+    "details": [
+      "Bonded technical shell",
+      "Brushed thermal interior",
+      "Asymmetric front zip",
+      "Brushed gunmetal hardware",
+      "Storm-sealed seams"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Gunmetal",
+        "hex": "#4a4a4a"
+      }
+    ],
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "images": [
+
+    ],
+    "dropLabel": "DROP 01",
+    "isNew": true,
+    "inventory": 15
+  },
+  {
+    "id": "p-005",
+    "slug": "utility-vest",
+    "name": "MANGOSTA UTILITY VEST",
+    "category": "jackets",
+    "price": 164,
+    "currency": "INR",
+    "description": "Layerable technical vest with a modular pocket system. Sits over hoodies and tees without adding bulk.",
+    "details": [
+      "Modular pocket system",
+      "Water-resistant shell",
+      "Adjustable side straps",
+      "Interior zip security pocket"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Stone",
+        "hex": "#8c8880"
+      }
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "images": [
+    ],
+    "inventory": 21
+  },
+  {
+    "id": "p-006",
+    "slug": "core-tee",
+    "name": "MANGOSTA CORE TEE",
+    "category": "t-shirts",
+    "price": 52,
+    "currency": "INR",
+    "description": "The everyday tee. Slightly closer fit than the Oversized, same 240gsm weight, mongoose mark at the chest.",
+    "details": [
+      "240gsm combed cotton",
+      "Regular fit through the body",
+      "Chest mark, tonal stitch",
+      "Pre-shrunk construction"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Bone",
+        "hex": "#e8e3d8"
+      },
+      {
+        "name": "Graphite",
+        "hex": "#3a3833"
+      },
+      {
+        "name": "Mango",
+        "hex": "#c4ff61"
+      }
+    ],
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "images": [
+    ],
+    "inventory": 58
+  },
+  {
+    "id": "p-007",
+    "slug": "track-pant",
+    "name": "MANGOSTA TRACK PANT",
+    "category": "pants",
+    "price": 108,
+    "currency": "INR",
+    "description": "Brushed fleece track pant with a tapered leg and zip ankle. Elastic waist with internal drawcord.",
+    "details": [
+      "Brushed interior fleece",
+      "Tapered leg, zip ankle opening",
+      "Internal drawcord waistband",
+      "Side seam pockets"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Graphite",
+        "hex": "#3a3833"
+      }
+    ],
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "images": [
+    ],
+    "inventory": 39
+  },
+  {
+    "id": "p-008",
+    "slug": "mark-cap",
+    "name": "MANGOSTA MARK CAP",
+    "category": "accessories",
+    "price": 44,
+    "currency": "INR",
+    "description": "Six-panel structured cap with the mongoose mark embroidered at the front. Adjustable brushed-metal strap closure.",
+    "details": [
+      "Structured six-panel construction",
+      "Embroidered mongoose mark",
+      "Brushed-metal strap closure",
+      "Pre-curved brim"
+    ],
+    "colors": [
+      {
+        "name": "Void Black",
+        "hex": "#0a0a0a"
+      },
+      {
+        "name": "Bone",
+        "hex": "#e8e3d8"
+      }
+    ],
+    "sizes": [
+      "ONE SIZE"
+    ],
+    "images": [
+    ],
+    "inventory": 64
+  }
+]

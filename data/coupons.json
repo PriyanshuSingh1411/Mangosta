@@ -1,0 +1,15 @@
+[
+  {
+    "id": "coupon-1788550689190-jepm31",
+    "code": "WELCOME",
+    "enabled": true,
+    "discountType": "percentage",
+    "discountValue": 10,
+    "minOrderValue": 0,
+    "maxDiscount": 0,
+    "startsAt": "",
+    "expiresAt": "",
+    "usageLimit": 1,
+    "usageCount": 0
+  }
+]

@@ -1,0 +1,139 @@
+{
+  "hero": {
+    "enabled": true,
+    "autoplay": true,
+    "autoplayDuration": 4500,
+    "transitionDuration": 700,
+    "transition": "fade",
+    "slides": [
+      {
+        "id": "hero-slide-b7b6454c-fe92-46d8-9dad-bb977889791d",
+        "enabled": true,
+        "order": 0,
+        "image": "https://res.cloudinary.com/nh7ttjnp/image/upload/v1788504272/mangosta/products/fazqmtc4j6jm8ietopje.jpg",
+        "topLabel": "",
+        "secondaryLabel": "",
+        "headlineLine1": "NEW",
+        "headlineLine2": "HERO",
+        "headlineLine3": "SLIDE.",
+        "description": "",
+        "buttonText": "SHOP THE DROP",
+        "buttonUrl": "/shop",
+        "issueLabel": "",
+        "issueSubtitle": "",
+        "productId": "",
+        "productTitle": "",
+        "productImage": "",
+        "productLink": "",
+        "titleStyle": "display"
+      },
+      {
+        "id": "hero-slide-1788505278608-1",
+        "enabled": true,
+        "order": 1,
+        "image": "https://res.cloudinary.com/nh7ttjnp/image/upload/v1788505301/mangosta/products/ikwi8nia3t1wa7vu5xfv.png",
+        "topLabel": "MANGOSTA / 02",
+        "secondaryLabel": "MANGOSTA STUDIOS",
+        "headlineLine1": "NEW",
+        "headlineLine2": "HERO",
+        "headlineLine3": "SLIDE.",
+        "description": "",
+        "buttonText": "SHOP THE DROP",
+        "buttonUrl": "/shop",
+        "issueLabel": "ISSUE 04",
+        "issueSubtitle": "MANGOSTA STUDIOS",
+        "productId": "",
+        "productTitle": "",
+        "productImage": "",
+        "productLink": "",
+        "titleStyle": "display"
+      }
+    ]
+  },
+  "heroHeadline": "WEAR\nYOUR\nATTITUDE.",
+  "heroSubline": "A new generation fashion label built for people who create their own rules.",
+  "announcementBar": "FREE SHOPING",
+  "announcementEnabled": true,
+  "collectionEnabled": true,
+  "collectionLabel": "",
+  "collectionTitle": "MANGOSTA",
+  "collectionSubtitle": "FW / 26",
+  "collectionDescription": "Twelve pieces. One attitude. The Fall/Winter 2026 collection is built for movement in any city.",
+  "collectionImage": "https://res.cloudinary.com/nh7ttjnp/image/upload/v1788504511/mangosta/products/wlzzrpuwkvluivlcvrnu.png",
+  "collectionOverlayEnabled": true,
+  "collectionOverlayOpacity": 52,
+  "drop": {
+    "enabled": true,
+    "label": "03 — THE DROP",
+    "title": "THE DROP",
+    "products": [
+      {
+        "enabled": true,
+        "productId": "p-001",
+        "title": "MANGOSTA OVERSIZED TEE",
+        "link": "/product/oversized-tee",
+        "titleStyle": "display",
+        "order": 0
+      }
+    ]
+  },
+  "mangostaStudiosEnabled": true,
+  "mangostaStudiosLabel": "04 — MANGOSTA STUDIOS",
+  "mangostaStudios": [
+    {
+      "enabled": true,
+      "productId": "p-001",
+      "title": "MANGOSTA OVERSIZED TEE",
+      "image": "https://res.cloudinary.com/nh7ttjnp/image/upload/v1788508519/mangosta/products/bgjqwnauhuotumxouzuq.png",
+      "tag": "DROP !",
+      "titleStyle": "display",
+      "link": "/product/oversized-tee",
+      "order": 0
+    },
+    {
+      "enabled": true,
+      "productId": "p-001",
+      "title": "MANGOSTA OVERSIZED TEE",
+      "image": "",
+      "tag": "",
+      "titleStyle": "display",
+      "link": "/product/oversized-tee",
+      "order": 1
+    }
+  ],
+  "mangostaCode": [
+    {
+      "enabled": true,
+      "heading": "MOVE",
+      "description": "NEW COLLECTION",
+      "headingStyle": "display",
+      "descriptionStyle": "body",
+      "productId": "p-001"
+    },
+    {
+      "enabled": true,
+      "heading": "",
+      "description": "",
+      "headingStyle": "display",
+      "descriptionStyle": "body",
+      "productId": ""
+    },
+    {
+      "enabled": true,
+      "heading": "",
+      "description": "",
+      "headingStyle": "display",
+      "descriptionStyle": "body",
+      "productId": ""
+    }
+  ],
+  "newsletterEnabled": true,
+  "newsletterSubject": "Gand marane ke liye",
+  "newsletterHeading": "Welcome to the khotha ",
+  "newsletterBody": "Kya re lavde gand mara",
+  "newsletterButtonText": "",
+  "newsletterButtonUrl": "/",
+  "newsletterFooterText": "MANGOSTA — WEAR YOUR ATTITUDE.",
+  "newsletterNotificationEnabled": false,
+  "newsletterNotificationEmail": "mangostateam@gmail.com"
+}
