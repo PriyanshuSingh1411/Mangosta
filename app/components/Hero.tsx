@@ -46,9 +46,6 @@ const DEFAULT_SLIDE: HeroSlide = {
   issueSubtitle: "URBAN APPAREL",
 
   productId: "",
-  productTitle: "",
-  productImage: "",
-  productLink: "",
 
   titleStyle: "display",
 };
@@ -400,9 +397,16 @@ export default function Hero({
     currentSlide.headlineLine3,
   ].filter(Boolean);
 
+  /*
+   * HeroSlide already contains buttonUrl, so there is no need
+   * to read a non-existent productLink property.
+   *
+   * productId remains available for future product association
+   * from the Admin Panel.
+   */
+
   const destination =
     currentSlide.buttonUrl ||
-    currentSlide.productLink ||
     "/shop";
 
   const hasImage =
@@ -635,7 +639,10 @@ export default function Hero({
                       >
                         {String(
                           index + 1
-                        ).padStart(2, "0")}
+                        ).padStart(
+                          2,
+                          "0"
+                        )}
                       </span>
 
                       {/* LINE */}
@@ -684,7 +691,9 @@ export default function Hero({
               <button
                 type="button"
                 aria-label="Next slide"
-                onClick={nextSlide}
+                onClick={
+                  nextSlide
+                }
                 className="flex h-9 w-9 items-center justify-center border border-bone/30 text-bone transition-all duration-300 hover:border-bone hover:bg-bone hover:text-void"
               >
                 <span aria-hidden="true">
