@@ -1,0 +1,296 @@
+@import "tailwindcss";
+
+@theme {
+  /* ---- Color tokens ---- */
+  --color-void: #0a0a0a;
+  --color-charcoal: #141311;
+  --color-charcoal-raised: #1b1a17;
+  --color-bone: #f5f2ec;
+  --color-bone-dim: #d8d4ca;
+  --color-stone: #8c8880;
+  --color-stone-dark: #55524b;
+  --color-silver: #b8b2a6;
+  --color-mango: #c4ff61;
+  --color-mango-dim: #8fbf47;
+  --color-line: rgba(245, 242, 236, 0.12);
+  --color-line-strong: rgba(245, 242, 236, 0.22);
+
+  /* ---- Font tokens ---- */
+  --font-display: "Archivo", "Arial Black", sans-serif;
+  --font-body: "Inter", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", monospace;
+
+  /* ---- Motion ---- */
+  --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ---- Responsive foundations ------------------------------------ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Long words / emails / URLs should wrap instead of stretching the page */
+p,
+h1,
+h2,
+h3,
+h4,
+li,
+td,
+th,
+label,
+span {
+  overflow-wrap: break-word;
+}
+
+/* iOS Safari zooms the page when a focused field is under 16px.
+   Keep text fields at 16px on touch-size screens so forms never jump. */
+@media (max-width: 1023px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Comfortable tap targets for the small text-buttons used in admin */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  summary {
+    touch-action: manipulation;
+  }
+}
+
+.font-display {
+  font-weight: 900;
+}
+
+html {
+  background: var(--color-void);
+  scroll-behavior: auto;
+}
+
+html.lenis {
+  height: auto;
+}
+
+
+
+/* User-selectable site theme. Components already use these semantic tokens,
+   so the light mode changes the existing visual system without changing layout. */
+html.light-theme {
+  --color-void: #f7f5ef;
+  --color-charcoal: #ebe8df;
+  --color-charcoal-raised: #e2dfd5;
+  --color-bone: #11110f;
+  --color-bone-dim: #383833;
+  --color-stone: #6f6b62;
+  --color-stone-dark: #9b968c;
+  --color-silver: #666158;
+  --color-line: rgba(17, 17, 15, 0.12);
+  --color-line-strong: rgba(17, 17, 15, 0.22);
+}
+
+html.light-theme body {
+  background: var(--color-void);
+  color: var(--color-bone);
+}
+
+html.light-theme .grain-overlay {
+  opacity: 0.035;
+}
+
+body {
+  background: var(--color-void);
+  color: var(--color-bone);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  cursor: auto;
+}
+
+@media (pointer: coarse), (hover: none) {
+  body {
+    cursor: auto;
+  }
+}
+
+::selection {
+  background: var(--color-mango);
+  color: var(--color-void);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-void);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-stone-dark);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-stone);
+}
+
+/* Film grain overlay - fixed, subtle, GPU-cheap */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyMDAnIGhlaWdodD0nMjAwJz48ZmlsdGVyIGlkPSdub2lzZSc+PGZlVHVyYnVsZW5jZSB0eXBlPSdmcmFjdGFsTm9pc2UnIGJhc2VGcmVxdWVuY3k9JzAuOScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbHRlcj0ndXJsKCNub2lzZSknLz48L3N2Zz4=");
+  background-repeat: repeat;
+}
+
+/* Custom cursor disabled */
+.cursor-dot,
+.cursor-ring {
+  display: none !important;
+}
+
+/* Utility: eyebrow / technical label */
+.label-technical {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-stone);
+}
+
+@media (max-width: 480px) {
+  .label-technical {
+    letter-spacing: 0.12em;
+  }
+}
+
+.hairline {
+  height: 1px;
+  background: var(--color-line);
+}
+
+/* Reduced motion: strip nonessential animation */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Focus visibility - never sacrifice for aesthetics */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-mango);
+  outline-offset: 3px;
+}
+
+/* ---- Hero carousel ------------------------------------------------ */
+
+@keyframes heroFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(1.035);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes heroSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(4%) scale(1.025);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes heroContentIn {
+  0% {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroScroll {
+  0% {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  50% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  51% {
+    transform-origin: bottom;
+  }
+  100% {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+}
+
+/* Phones held sideways and other very short viewports: shrink the
+   headline, drop the paragraph and keep everything inside the frame. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .hero-frame {
+    min-height: 100svh;
+  }
+
+  .hero-top-meta {
+    top: 84px !important;
+  }
+
+  .hero-content {
+    bottom: 4.75rem !important;
+  }
+
+  .hero-headline {
+    font-size: clamp(1.75rem, 12svh, 3.25rem) !important;
+  }
+
+  .hero-description,
+  .hero-slide-number {
+    display: none;
+  }
+}
