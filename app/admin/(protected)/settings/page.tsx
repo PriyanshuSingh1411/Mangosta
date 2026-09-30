@@ -493,35 +493,46 @@ const studioImageInputRef =
 
 const [studioUploadIndex, setStudioUploadIndex] =
   useState<number | null>(null);
-
-  const [selectedSection, setSelectedSection] = useState<"hero" | "announcement" | "drop" | "code">("hero");
+  const [selectedSection, setSelectedSection] = useState<
+  "hero" | "announcement" | "drop" | "collection" | "studios" | "code"
+>("hero");
 
   // ============================================================
   // SECTION CONFIGURATION
   // ============================================================
 
-  const SECTION_CONFIG = [
-    {
-      id: "hero" as const,
-      label: "Hero Carousel",
-      description: "Manage slides, images, transitions"
-    },
-    {
-      id: "announcement" as const,
-      label: "Announcement Bar",
-      description: "Header announcement message"
-    },
-    {
-      id: "drop" as const,
-      label: "The Drop",
-      description: "Featured drop section with products"
-    },
-    {
-      id: "code" as const,
-      label: "Mangosta Code",
-      description: "Move/Create/Define feature boxes"
-    }
-  ];
+ const SECTION_CONFIG = [
+  {
+    id: "hero" as const,
+    label: "Hero Carousel",
+    description: "Manage slides, images, transitions",
+  },
+  {
+    id: "announcement" as const,
+    label: "Announcement Bar",
+    description: "Header announcement message",
+  },
+  {
+    id: "drop" as const,
+    label: "The Drop",
+    description: "Featured drop section with products",
+  },
+  {
+    id: "collection" as const,
+    label: "New Collection",
+    description: "Manage the New Collection section",
+  },
+  {
+    id: "studios" as const,
+    label: "Mangosta Studios",
+    description: "Manage Mangosta Studios products",
+  },
+  {
+    id: "code" as const,
+    label: "Mangosta Code",
+    description: "Move/Create/Define feature boxes",
+  },
+];
 
   // ============================================================
   // LOAD SETTINGS
