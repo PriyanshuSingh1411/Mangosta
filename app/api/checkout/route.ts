@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import {
   calculateShipping,
   consumeCoupon,
@@ -6,6 +7,7 @@ import {
   getCheckoutSettings,
   validateCoupon,
 } from "@/app/lib/dataStore";
+
 import type { OrderLine } from "@/app/lib/dataStore";
 
 interface CheckoutLineInput {
@@ -20,118 +22,362 @@ interface CheckoutLineInput {
   price: number;
 }
 
-export async function GET(req: NextRequest) {
-  const settings = await getCheckoutSettings();
-  const subtotalParam = req.nextUrl.searchParams.get("subtotal");
-  const subtotal = Math.max(0, Number(subtotalParam) || 0);
-  const shipping = calculateShipping(subtotal, settings);
+type PaymentMethod = "cod" | "online" | "card";
 
-  return NextResponse.json({
-    settings,
-    subtotal,
-    shipping,
-    total: subtotal + shipping,
-  });
+function isValidPaymentMethod(value: unknown): value is PaymentMethod {
+  return value === "cod" || value === "online" || value === "card";
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
+/* -------------------------------------------------------------------------- */
+/* GET /api/checkout                                                          */
+/* Used by checkout page to calculate shipping                                */
+/* -------------------------------------------------------------------------- */
 
-  if (!body || !Array.isArray(body.lines) || body.lines.length === 0) {
-    return NextResponse.json({ error: "Cart is empty." }, { status: 400 });
-  }
+export async function GET(req: NextRequest) {
+  try {
+    const settings = await getCheckoutSettings();
 
-  const { email, firstName, lastName, mobile, address, city, postalCode } =
-    body.customer || {};
+    const subtotalParam = req.nextUrl.searchParams.get("subtotal");
 
-  if (!email || !firstName || !lastName || !mobile || !address || !city || !postalCode) {
+    const subtotal = Math.max(
+      0,
+      Number(subtotalParam) || 0
+    );
+
+    const shipping = calculateShipping(
+      subtotal,
+      settings
+    );
+
+    return NextResponse.json({
+      settings,
+      subtotal,
+      shipping,
+      total: subtotal + shipping,
+    });
+  } catch (error) {
+    console.error("Checkout GET error:", error);
+
     return NextResponse.json(
-      { error: "All contact and shipping fields are required." },
-      { status: 400 }
+      {
+        error: "Unable to calculate checkout details.",
+      },
+      {
+        status: 500,
+      }
     );
   }
+}
 
-  const lines: OrderLine[] = (body.lines as CheckoutLineInput[]).map((l) => ({
-    lineId: l.lineId,
-    productId: l.productId,
-    productName: l.productName,
-    slug: l.slug,
-    image: l.image || "",
-    size: l.size,
-    color: l.color,
-    quantity: Math.max(1, Number(l.quantity) || 1),
-    price: Number(l.price) || 0,
-  }));
+/* -------------------------------------------------------------------------- */
+/* POST /api/checkout                                                         */
+/* Creates the order                                                          */
+/* -------------------------------------------------------------------------- */
 
-  const subtotal = lines.reduce(
-    (sum, line) => sum + line.price * line.quantity,
-    0
-  );
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => null);
 
-  const checkoutSettings = await getCheckoutSettings();
-  const shipping = calculateShipping(subtotal, checkoutSettings);
+    /* ---------------------------------------------------------------------- */
+    /* Validate request                                                       */
+    /* ---------------------------------------------------------------------- */
 
-  const requestedCouponCode =
-    typeof body.couponCode === "string" ? body.couponCode.trim() : "";
-
-  let couponCode = "";
-  let discount = 0;
-
-  if (requestedCouponCode) {
-    const result = await validateCoupon(requestedCouponCode, subtotal).catch(
-      (error) => ({ error })
-    );
-
-    if ("error" in result) {
+    if (
+      !body ||
+      !Array.isArray(body.lines) ||
+      body.lines.length === 0
+    ) {
       return NextResponse.json(
         {
-          error:
-            result.error instanceof Error
-              ? result.error.message
-              : "Invalid coupon code.",
+          error: "Cart is empty.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    couponCode = result.coupon.code;
-    discount = result.discount;
-  }
+    /* ---------------------------------------------------------------------- */
+    /* Customer                                                               */
+    /* ---------------------------------------------------------------------- */
 
-  const total = Math.max(0, subtotal - discount) + shipping;
+    const {
+      email,
+      firstName,
+      lastName,
+      mobile,
+      address,
+      city,
+      state,
+      postalCode,
+    } = body.customer || {};
 
-  const order = await createOrder({
-    customer: {
-      email: String(email).trim().toLowerCase(),
-      firstName: String(firstName).trim(),
-      lastName: String(lastName).trim(),
-      mobile: String(mobile).trim(),
-      address: String(address).trim(),
-      city: String(city).trim(),
-      postalCode: String(postalCode).trim(),
-    },
-    lines,
-    subtotal,
-    shipping,
-    discount,
-    couponCode: couponCode || undefined,
-    total,
-  });
-
-  if (couponCode) {
-    try {
-      await consumeCoupon(couponCode);
-    } catch {
-      // Order already saved. Do not fail the order after persistence.
+    if (
+      !email ||
+      !firstName ||
+      !lastName ||
+      !mobile ||
+      !address ||
+      !city ||
+      !state ||
+      !postalCode
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "All contact and shipping fields are required.",
+        },
+        {
+          status: 400,
+        }
+      );
     }
-  }
 
-  return NextResponse.json(
-    {
-      order,
+    /* ---------------------------------------------------------------------- */
+    /* Payment method                                                         */
+    /* ---------------------------------------------------------------------- */
+
+    const paymentMethod = body.paymentMethod;
+
+    if (!isValidPaymentMethod(paymentMethod)) {
+      return NextResponse.json(
+        {
+          error: "Please select a valid payment method.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Prepare order lines                                                    */
+    /* ---------------------------------------------------------------------- */
+
+    const lines: OrderLine[] = (
+      body.lines as CheckoutLineInput[]
+    ).map((line) => ({
+      lineId: String(line.lineId),
+      productId: String(line.productId),
+      productName: String(line.productName),
+      slug: String(line.slug),
+      image: line.image || "",
+      size: String(line.size || ""),
+      color: String(line.color || ""),
+      quantity: Math.max(
+        1,
+        Number(line.quantity) || 1
+      ),
+      price: Math.max(
+        0,
+        Number(line.price) || 0
+      ),
+    }));
+
+    /* ---------------------------------------------------------------------- */
+    /* Calculate subtotal                                                     */
+    /* ---------------------------------------------------------------------- */
+
+    const subtotal = lines.reduce(
+      (sum, line) =>
+        sum + line.price * line.quantity,
+      0
+    );
+
+    /* ---------------------------------------------------------------------- */
+    /* Calculate shipping                                                     */
+    /* ---------------------------------------------------------------------- */
+
+    const checkoutSettings =
+      await getCheckoutSettings();
+
+    const shipping = calculateShipping(
+      subtotal,
+      checkoutSettings
+    );
+
+    /* ---------------------------------------------------------------------- */
+    /* Coupon                                                                 */
+    /* ---------------------------------------------------------------------- */
+
+    const requestedCouponCode =
+      typeof body.couponCode === "string"
+        ? body.couponCode.trim()
+        : "";
+
+    let couponCode = "";
+    let discount = 0;
+
+    if (requestedCouponCode) {
+      const result =
+        await validateCoupon(
+          requestedCouponCode,
+          subtotal
+        ).catch((error) => ({
+          error,
+        }));
+
+      if ("error" in result) {
+        return NextResponse.json(
+          {
+            error:
+              result.error instanceof Error
+                ? result.error.message
+                : "Invalid coupon code.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      couponCode = result.coupon.code;
+
+      discount = Math.min(
+        subtotal,
+        Math.max(
+          0,
+          Number(result.discount) || 0
+        )
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Final total                                                            */
+    /* ---------------------------------------------------------------------- */
+
+    const total =
+      Math.max(
+        0,
+        subtotal - discount
+      ) + shipping;
+
+    /* ---------------------------------------------------------------------- */
+    /* Payment status                                                         */
+    /*                                                                      */
+    /* COD doesn't require an online payment.                                */
+    /* Online/Card should remain pending until a real payment gateway        */
+    /* confirms the payment.                                                 */
+    /* ---------------------------------------------------------------------- */
+
+    const paymentStatus =
+      paymentMethod === "cod"
+        ? "pending"
+        : "pending";
+
+    /* ---------------------------------------------------------------------- */
+    /* Create order                                                           */
+    /* ---------------------------------------------------------------------- */
+
+    const order = await createOrder({
+      customer: {
+        email: String(email)
+          .trim()
+          .toLowerCase(),
+
+        firstName: String(firstName)
+          .trim(),
+
+        lastName: String(lastName)
+          .trim(),
+
+        mobile: String(mobile)
+          .trim(),
+
+        address: String(address)
+          .trim(),
+
+        city: String(city)
+          .trim(),
+
+        state: String(state)
+          .trim(),
+
+        postalCode: String(postalCode)
+          .trim(),
+      },
+
+      lines,
+
+      subtotal,
+
+      shipping,
+
       discount,
-      couponCode: couponCode || null,
-    },
-    { status: 201 }
-  );
+
+      couponCode:
+        couponCode || undefined,
+
+      total,
+
+      paymentMethod,
+
+      paymentStatus,
+    });
+
+    /* ---------------------------------------------------------------------- */
+    /* Consume coupon after successful order                                  */
+    /* ---------------------------------------------------------------------- */
+
+    if (couponCode) {
+      try {
+        await consumeCoupon(
+          couponCode
+        );
+      } catch (couponError) {
+        console.error(
+          "Coupon consumption failed after order creation:",
+          couponError
+        );
+
+        /*
+         * The order has already been created,
+         * so we don't fail the customer's order.
+         */
+      }
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Response                                                               */
+    /* ---------------------------------------------------------------------- */
+
+    return NextResponse.json(
+      {
+        success: true,
+
+        order,
+
+        orderId: order.id,
+
+        paymentMethod,
+
+        paymentStatus,
+
+        discount,
+
+        couponCode:
+          couponCode || null,
+      },
+      {
+        status: 201,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Checkout POST error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to place order.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

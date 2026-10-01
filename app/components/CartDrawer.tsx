@@ -167,7 +167,7 @@ export default function CartDrawer() {
                   </div>
                   <div className="flex flex-col gap-3">
                     <Link
-                      href="/checkout"
+                      href="/bag"
                       onClick={closeBag}
                       className="border border-line-strong py-3.5 text-center text-xs font-medium tracking-[0.15em] text-bone transition-colors hover:border-bone"
                       {...viewCursor}

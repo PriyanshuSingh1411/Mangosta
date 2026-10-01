@@ -11,7 +11,7 @@ import { useAuth } from "@/app/components/AuthProvider";
 const NAV_LINKS = [
   { label: "SHOP", href: "/shop" },
   { label: "ABOUT", href: "/about" },
-  { label: "JOURNAL", href: "/#the-mark" },
+   { label: "YOUR ORDERS", href: "/orders" },
 ];
 
 export default function Navigation() {
@@ -185,7 +185,7 @@ export default function Navigation() {
 
               <svg
                 className="h-[17px] w-[17px] transition-transform duration-300 group-hover:scale-110 sm:hidden"
-                viewBox="0 0 24 24"
+                viewBox="0 0 24] 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.5"
@@ -273,11 +273,11 @@ export default function Navigation() {
             </div>
 
             <nav
-              className="flex flex-1 flex-col justify-center px-6 py-6"
+              className="flex flex-col px-6 pt-5 pb-4"
               aria-label="Mobile"
             >
-              <div className="mb-8">
-                <p className="label-technical text-stone">MANGOSTA / FW26</p>
+              <div className="mb-5">
+                <p className="label-technical text-stone">MANGOSTA</p>
               </div>
 
               {NAV_LINKS.map((link, index) => (
@@ -294,7 +294,7 @@ export default function Navigation() {
                   <Link
                     href={link.href}
                     onClick={closeMenu}
-                    className="group flex items-center justify-between border-b border-line py-5 font-display text-[clamp(2.25rem,9vw,3rem)] tracking-tight text-bone transition-colors duration-300 active:text-mango sm:py-6"
+                    className="group flex items-center justify-between border-b border-line py-4 font-display text-[2.6rem] leading-none tracking-tight text-bone transition-colors duration-300 active:text-mango sm:py-4"
                   >
                     <span>{link.label}</span>
                     <span className="text-xl text-stone opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
@@ -306,7 +306,7 @@ export default function Navigation() {
             </nav>
 
             {/* MOBILE THEME */}
-            <div className="border-t border-line px-6 py-5">
+            <div className="border-t border-line px-6 py-3.5">
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -317,7 +317,7 @@ export default function Navigation() {
             </div>
 
             {/* MOBILE ACCOUNT */}
-            <div className="border-t border-line px-6 py-5">
+            <div className="border-t border-line px-6 py-3.5">
               {user ? (
                 <button
                   type="button"
@@ -327,7 +327,7 @@ export default function Navigation() {
                   }}
                   className="label-technical text-stone transition-colors hover:text-bone"
                 >
-                  LOGOUT — {user.email}
+                  LOGOUT
                 </button>
               ) : (
                 <button
@@ -343,10 +343,9 @@ export default function Navigation() {
               )}
             </div>
 
-            <div className="border-t border-line px-6 py-8">
-              <div className="mb-5 flex items-center justify-between">
+            <div className="border-t border-line px-6 py-5">
+              <div className="mb-4 flex items-center justify-between">
                 <span className="label-technical">MANGOSTA WORLD</span>
-                <span className="label-technical text-stone">FW / 26</span>
               </div>
 
               <div className="flex gap-6 label-technical">

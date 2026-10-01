@@ -97,6 +97,13 @@ function omitMongoId<T extends { _id?: unknown }>(
 // ORDERS
 // ============================================================
 
+export type PaymentMethod = "cod" | "online" | "card";
+
+export type PaymentStatus =
+  | "pending"
+  | "paid"
+  | "failed";
+
 export interface OrderLine {
   lineId: string;
   productId: string;
@@ -112,22 +119,33 @@ export interface OrderLine {
 export interface Order {
   id: string;
   createdAt: string;
-  status: "pending" | "fulfilled" | "cancelled";
+
+  status:
+    | "pending"
+    | "fulfilled"
+    | "cancelled";
+
   customer: {
     email: string;
     firstName: string;
     lastName: string;
     address: string;
     city: string;
+    state: string;
     postalCode: string;
     mobile: string;
   };
+
   lines: OrderLine[];
+
   subtotal: number;
   shipping: number;
   discount?: number;
   couponCode?: string;
   total: number;
+
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
 }
 
 // ============================================================
@@ -474,10 +492,86 @@ export async function getOrders(): Promise<Order[]> {
     .sort({ createdAt: -1 })
     .toArray();
 
-  return documents.map(
-  (document) =>
-    omitMongoId(document) as Order
-);
+  return documents.map((document) => {
+    const order = omitMongoId(document) as Partial<Order>;
+
+    return {
+      ...order,
+
+      id: String(order.id ?? ""),
+      createdAt: String(
+        order.createdAt ?? new Date().toISOString()
+      ),
+
+      status:
+        order.status === "fulfilled" ||
+        order.status === "cancelled"
+          ? order.status
+          : "pending",
+
+      customer: {
+        email: String(
+          order.customer?.email ?? ""
+        ),
+
+        firstName: String(
+          order.customer?.firstName ?? ""
+        ),
+
+        lastName: String(
+          order.customer?.lastName ?? ""
+        ),
+
+        address: String(
+          order.customer?.address ?? ""
+        ),
+
+        city: String(
+          order.customer?.city ?? ""
+        ),
+
+        state: String(
+          order.customer?.state ?? ""
+        ),
+
+        postalCode: String(
+          order.customer?.postalCode ?? ""
+        ),
+
+        mobile: String(
+          order.customer?.mobile ?? ""
+        ),
+      },
+
+      lines: Array.isArray(order.lines)
+        ? order.lines
+        : [],
+
+      subtotal: Number(order.subtotal) || 0,
+      shipping: Number(order.shipping) || 0,
+      discount: Number(order.discount) || 0,
+      couponCode: order.couponCode
+        ? String(order.couponCode)
+        : undefined,
+      total: Number(order.total) || 0,
+
+      /*
+       * Existing orders created before payment
+       * fields were added are treated as COD/pending.
+       */
+      paymentMethod:
+        order.paymentMethod === "online" ||
+        order.paymentMethod === "card"
+          ? order.paymentMethod
+          : "cod",
+
+      paymentStatus:
+        order.paymentStatus === "paid" ||
+        order.paymentStatus === "failed"
+          ? order.paymentStatus
+          : "pending",
+    };
+  });
 }
 
 export async function saveOrders(
@@ -530,35 +624,63 @@ export async function createOrder(
 ): Promise<Order> {
   const newOrder: Order = {
     ...order,
+
     customer: {
       ...order.customer,
+
       mobile: String(
         order.customer?.mobile ?? ""
       ),
+
+      state: String(
+        order.customer?.state ?? ""
+      ),
     },
+
+    paymentMethod:
+      order.paymentMethod === "online" ||
+      order.paymentMethod === "card"
+        ? order.paymentMethod
+        : "cod",
+
+    paymentStatus:
+      order.paymentStatus === "paid" ||
+      order.paymentStatus === "failed"
+        ? order.paymentStatus
+        : "pending",
+
     id: `MG-${Date.now()
       .toString(36)
       .toUpperCase()}`,
+
     createdAt:
       new Date().toISOString(),
+
     status: "pending",
   };
 
   const db = await getDb();
-  const collection = db.collection<any>("orders");
+
+  const collection =
+    db.collection<any>("orders");
 
   await collection.insertOne({
     ...newOrder,
     _id: newOrder.id,
   });
 
-  // Decrement inventory for purchased products.
+  // ----------------------------------------------------------
+  // Decrement inventory
+  // ----------------------------------------------------------
+
   const products = await getProducts();
+
   let changed = false;
 
   for (const line of newOrder.lines) {
     const product = products.find(
-      (item) => item.id === line.productId
+      (item) =>
+        item.id === line.productId
     );
 
     if (product) {
@@ -566,6 +688,7 @@ export async function createOrder(
         0,
         product.inventory - line.quantity
       );
+
       changed = true;
     }
   }

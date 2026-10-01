@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+
 import Navigation from "@/app/components/Navigation";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
 import { useCartStore } from "@/app/store/useCartStore";
@@ -45,18 +46,53 @@ type AppliedCoupon = CheckoutCoupon & {
   discount: number;
 };
 
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry",
+];
+
 export default function CheckoutPage() {
-  const { lines, subtotal, clearCart } = useCartStore();
+  const { lines, subtotal } = useCartStore();
   const { user, loading: authLoading } = useAuth();
 
-  const [placed, setPlaced] = useState(false);
+  const shopCursor = useCursorHover("shop", "SHOP");
+
   const [failedLines, setFailedLines] = useState<Set<string>>(
     new Set()
-  );
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(
-    null
   );
 
   const [checkoutSettings, setCheckoutSettings] =
@@ -67,8 +103,10 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] =
     useState(true);
 
-  const [couponCode, setCouponCode] =
-    useState("");
+  const [submitError, setSubmitError] =
+    useState<string | null>(null);
+
+  const [couponCode, setCouponCode] = useState("");
 
   const [appliedCoupon, setAppliedCoupon] =
     useState<AppliedCoupon | null>(null);
@@ -92,18 +130,22 @@ export default function CheckoutPage() {
     mobile: "",
     address: "",
     city: "",
+    state: "",
     postalCode: "",
-    cardNumber: "",
-    expiry: "",
-    cvc: "",
   });
-
-  const shopCursor = useCursorHover("shop", "SHOP");
 
   const currentSubtotal = subtotal();
 
+  /*
+   * --------------------------------------------------------------------------
+   * Prefill logged-in customer
+   * --------------------------------------------------------------------------
+   */
+
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading || !user) {
+      return;
+    }
 
     setForm((current) => ({
       ...current,
@@ -116,9 +158,10 @@ export default function CheckoutPage() {
 
   /*
    * --------------------------------------------------------------------------
-   * Load checkout / shipping settings
+   * Load checkout settings
    * --------------------------------------------------------------------------
    */
+
   useEffect(() => {
     let cancelled = false;
 
@@ -142,7 +185,7 @@ export default function CheckoutPage() {
         if (!response.ok) {
           throw new Error(
             data?.error ||
-              "Failed to load shipping settings."
+              "Failed to load checkout settings."
           );
         }
 
@@ -150,19 +193,17 @@ export default function CheckoutPage() {
           setCheckoutSettings({
             ...DEFAULT_CHECKOUT_SETTINGS,
             ...data.settings,
-            rules: Array.isArray(
-              data.settings.rules
-            )
+            rules: Array.isArray(data.settings.rules)
               ? data.settings.rules
               : [],
           });
         }
-      } catch (err) {
+      } catch (error) {
         if (!cancelled) {
           setSubmitError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load shipping settings."
+            error instanceof Error
+              ? error.message
+              : "Failed to load checkout settings."
           );
         }
       } finally {
@@ -182,11 +223,9 @@ export default function CheckoutPage() {
   /*
    * --------------------------------------------------------------------------
    * Load available coupons
-   *
-   * This calls the public coupon GET endpoint. It should return only coupons
-   * that are enabled and currently active.
    * --------------------------------------------------------------------------
    */
+
   useEffect(() => {
     let cancelled = false;
 
@@ -215,41 +254,33 @@ export default function CheckoutPage() {
         }
 
         if (!cancelled) {
-          const coupons = Array.isArray(
-            data?.coupons
-          )
+          const coupons = Array.isArray(data?.coupons)
             ? data.coupons
             : [];
 
           setAvailableCoupons(
             coupons.map(
               (coupon: CheckoutCoupon) => ({
-                code: String(
-                  coupon.code || ""
-                )
+                code: String(coupon.code || "")
                   .trim()
                   .toUpperCase(),
+
                 discountType:
-                  coupon.discountType ===
-                  "fixed"
+                  coupon.discountType === "fixed"
                     ? "fixed"
                     : "percentage",
+
                 discountValue:
-                  Number(
-                    coupon.discountValue
-                  ) || 0,
+                  Number(coupon.discountValue) || 0,
+
                 minOrderValue:
-                  Number(
-                    coupon.minOrderValue
-                  ) || 0,
+                  Number(coupon.minOrderValue) || 0,
+
                 maxDiscount:
-                  Number(
-                    coupon.maxDiscount
-                  ) || 0,
-                startsAt:
-                  coupon.startsAt || "",
-                expiresAt:
-                  coupon.expiresAt || "",
+                  Number(coupon.maxDiscount) || 0,
+
+                startsAt: coupon.startsAt || "",
+                expiresAt: coupon.expiresAt || "",
               })
             )
           );
@@ -277,18 +308,15 @@ export default function CheckoutPage() {
    * Apply coupon
    * --------------------------------------------------------------------------
    */
-  const applyCouponCode = async (
-    code: string
-  ) => {
+
+  const applyCouponCode = async (code: string) => {
     const normalizedCode = code
       .trim()
       .toUpperCase()
       .replace(/\s+/g, "");
 
     if (!normalizedCode) {
-      setCouponError(
-        "Enter a coupon code."
-      );
+      setCouponError("Enter a coupon code.");
       return;
     }
 
@@ -302,8 +330,7 @@ export default function CheckoutPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             code: normalizedCode,
@@ -323,10 +350,7 @@ export default function CheckoutPage() {
         );
       }
 
-      if (
-        !data?.coupon ||
-        !data.coupon.code
-      ) {
+      if (!data?.coupon?.code) {
         throw new Error(
           "Invalid coupon response."
         );
@@ -337,52 +361,42 @@ export default function CheckoutPage() {
 
       if (discount <= 0) {
         throw new Error(
-          "This coupon does not provide a discount for this order."
+          "This coupon does not apply to this order."
         );
       }
 
       setAppliedCoupon({
-        code: String(
-          data.coupon.code
-        )
+        code: String(data.coupon.code)
           .trim()
           .toUpperCase(),
+
         discountType:
-          data.coupon
-            .discountType === "fixed"
+          data.coupon.discountType === "fixed"
             ? "fixed"
             : "percentage",
+
         discountValue:
-          Number(
-            data.coupon.discountValue
-          ) || 0,
+          Number(data.coupon.discountValue) || 0,
+
         minOrderValue:
-          Number(
-            data.coupon.minOrderValue
-          ) || 0,
+          Number(data.coupon.minOrderValue) || 0,
+
         maxDiscount:
-          Number(
-            data.coupon.maxDiscount
-          ) || 0,
-        startsAt:
-          data.coupon.startsAt || "",
-        expiresAt:
-          data.coupon.expiresAt || "",
+          Number(data.coupon.maxDiscount) || 0,
+
+        startsAt: data.coupon.startsAt || "",
+        expiresAt: data.coupon.expiresAt || "",
+
         discount,
       });
 
-      setCouponCode(
-        String(data.coupon.code)
-          .trim()
-          .toUpperCase()
-      );
       setCouponError(null);
-    } catch (err) {
+    } catch (error) {
       setAppliedCoupon(null);
 
       setCouponError(
-        err instanceof Error
-          ? err.message
+        error instanceof Error
+          ? error.message
           : "Unable to apply coupon."
       );
     } finally {
@@ -390,17 +404,6 @@ export default function CheckoutPage() {
     }
   };
 
-  const applyCoupon = async () => {
-    await applyCouponCode(
-      couponCode
-    );
-  };
-
-  /*
-   * --------------------------------------------------------------------------
-   * Remove coupon
-   * --------------------------------------------------------------------------
-   */
   const removeCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode("");
@@ -409,108 +412,10 @@ export default function CheckoutPage() {
 
   /*
    * --------------------------------------------------------------------------
-   * Revalidate applied coupon when subtotal changes
+   * Shipping
    * --------------------------------------------------------------------------
    */
-  useEffect(() => {
-    if (!appliedCoupon) {
-      return;
-    }
 
-    const coupon = appliedCoupon;
-
-    let cancelled = false;
-
-    async function refreshCoupon() {
-      try {
-        const response = await fetch(
-          "/api/checkout/coupon",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              code: coupon.code,
-              subtotal:
-                currentSubtotal,
-            }),
-          }
-        );
-
-        const data = await response
-          .json()
-          .catch(() => null);
-
-        if (cancelled) {
-          return;
-        }
-
-        if (!response.ok) {
-          setAppliedCoupon(null);
-          setCouponCode("");
-
-          setCouponError(
-            data?.error ||
-              "Coupon is no longer valid for this order."
-          );
-
-          return;
-        }
-
-        const newDiscount =
-          Number(data.discount) || 0;
-
-        if (newDiscount <= 0) {
-          setAppliedCoupon(null);
-          setCouponCode("");
-
-          setCouponError(
-            "Coupon is no longer valid for this order."
-          );
-
-          return;
-        }
-
-        setAppliedCoupon(
-          (current) =>
-            current
-              ? {
-                  ...current,
-                  discount:
-                    newDiscount,
-                }
-              : current
-        );
-
-        setCouponError(null);
-      } catch (err) {
-        if (!cancelled) {
-          setCouponError(
-            err instanceof Error
-              ? err.message
-              : "Failed to refresh coupon."
-          );
-        }
-      }
-    }
-
-    refreshCoupon();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    currentSubtotal,
-    appliedCoupon?.code,
-  ]);
-
-  /*
-   * --------------------------------------------------------------------------
-   * Calculate shipping
-   * --------------------------------------------------------------------------
-   */
   const shipping = (() => {
     if (
       lines.length === 0 ||
@@ -530,9 +435,7 @@ export default function CheckoutPage() {
     const matchingRule = [
       ...checkoutSettings.rules,
     ]
-      .filter(
-        (rule) => rule.enabled
-      )
+      .filter((rule) => rule.enabled)
       .sort(
         (a, b) =>
           b.minOrderValue -
@@ -552,134 +455,138 @@ export default function CheckoutPage() {
 
   /*
    * --------------------------------------------------------------------------
-   * Calculate discount / final total
+   * Discount + total
    * --------------------------------------------------------------------------
    */
-  const discount =
-    Math.min(
-      currentSubtotal,
-      Math.max(
-        0,
-        Number(
-          appliedCoupon?.discount || 0
-        )
-      )
-    );
 
-  const discountedSubtotal =
+  const discount = Math.min(
+    currentSubtotal,
+    Math.max(
+      0,
+      Number(appliedCoupon?.discount || 0)
+    )
+  );
+
+  const total =
     Math.max(
       0,
       currentSubtotal - discount
-    );
-
-  const total =
-    discountedSubtotal + shipping;
+    ) + shipping;
 
   /*
    * --------------------------------------------------------------------------
-   * Form helper
+   * Input helpers
    * --------------------------------------------------------------------------
    */
+
   const updateField =
+    (key: keyof typeof form) =>
     (
-      key: keyof typeof form
-    ) =>
-    (
-      e: React.ChangeEvent<HTMLInputElement>
+      event: React.ChangeEvent<HTMLInputElement>
     ) => {
       setForm((current) => ({
         ...current,
-        [key]: e.target.value,
+        [key]: event.target.value,
       }));
     };
 
+  const handleMobileChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = event.target.value
+      .replace(/\D/g, "")
+      .slice(0, 10);
+
+    setForm((current) => ({
+      ...current,
+      mobile: value,
+    }));
+  };
+
+  const handlePostalCodeChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = event.target.value
+      .replace(/\D/g, "")
+      .slice(0, 6);
+
+    setForm((current) => ({
+      ...current,
+      postalCode: value,
+    }));
+  };
+
   /*
    * --------------------------------------------------------------------------
-   * Submit order
+   * Continue to payment
+   *
+   * We do NOT create the order here.
+   * We only save checkout information temporarily.
    * --------------------------------------------------------------------------
    */
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
+
+  const handleContinueToPayment = (
+    event: React.FormEvent<HTMLFormElement>
   ) => {
-    e.preventDefault();
+    event.preventDefault();
 
     setSubmitError(null);
-    setIsSubmitting(true);
+
+    if (form.mobile.length !== 10) {
+      setSubmitError(
+        "Please enter a valid 10-digit mobile number."
+      );
+      return;
+    }
+
+    if (form.postalCode.length !== 6) {
+      setSubmitError(
+        "Please enter a valid 6-digit PIN code."
+      );
+      return;
+    }
+
+    if (!form.state) {
+      setSubmitError(
+        "Please select your state."
+      );
+      return;
+    }
 
     try {
-      const response = await fetch(
-        "/api/checkout",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            customer: {
-              email: form.email,
-              firstName:
-                form.firstName,
-              lastName:
-                form.lastName,
-              mobile:
-                form.mobile,
-              address: form.address,
-              city: form.city,
-              postalCode:
-                form.postalCode,
-            },
+      const checkoutData = {
+        customer: {
+          email: form.email,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          mobile: form.mobile,
+          address: form.address,
+          city: form.city,
+          state: form.state,
+          postalCode: form.postalCode,
+        },
 
-            lines: lines.map(
-              (line) => ({
-                lineId: line.lineId,
-                productId:
-                  line.product.id,
-                productName:
-                  line.product.name,
-                slug:
-                  line.product.slug,
-                image:
-                  line.product
-                    .images[0] || "",
-                size: line.size,
-                color: line.color,
-                quantity:
-                  line.quantity,
-                price:
-                  line.product.price,
-              })
-            ),
+        couponCode:
+          appliedCoupon?.code || "",
 
-            couponCode:
-              appliedCoupon?.code ||
-              "",
-          }),
-        }
+        discount,
+
+        shipping,
+
+        total,
+      };
+
+      sessionStorage.setItem(
+        "mangosta-checkout",
+        JSON.stringify(checkoutData)
       );
 
-      if (!response.ok) {
-        const data =
-          await response
-            .json()
-            .catch(() => ({}));
-
-        throw new Error(
-          data?.error ||
-            "Failed to place order. Please try again."
-        );
-      }
-
-      setPlaced(true);
-      clearCart();
-    } catch (err) {
+      window.location.href =
+        "/checkout/payment";
+    } catch {
       setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong."
+        "Unable to continue. Please try again."
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -688,10 +595,8 @@ export default function CheckoutPage() {
    * Empty cart
    * --------------------------------------------------------------------------
    */
-  if (
-    lines.length === 0 &&
-    !placed
-  ) {
+
+  if (lines.length === 0) {
     return (
       <>
         <Navigation />
@@ -719,104 +624,86 @@ export default function CheckoutPage() {
 
   /*
    * --------------------------------------------------------------------------
-   * Order placed
+   * PAGE
    * --------------------------------------------------------------------------
    */
-  if (placed) {
-    return (
-      <>
-        <Navigation />
 
-        <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-void px-6 text-center">
-          <p className="label-technical">
-            ORDER CONFIRMED
-          </p>
-
-          <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
-            Thank you.
-          </h1>
-
-          <p className="max-w-md text-sm leading-relaxed text-stone">
-            Your order has been placed
-            successfully.
-          </p>
-
-          <Link
-            href="/shop"
-            {...shopCursor}
-            className="border border-line-strong px-6 py-3 text-xs tracking-[0.15em] text-bone transition-colors hover:border-mango hover:text-mango"
-          >
-            CONTINUE SHOPPING
-          </Link>
-        </main>
-      </>
-    );
-  }
-
-  /*
-   * --------------------------------------------------------------------------
-   * Checkout page
-   * --------------------------------------------------------------------------
-   */
   return (
     <>
       <Navigation />
 
       <main className="min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
         <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.25fr_0.9fr] lg:gap-16">
-            {/* ---------------------------------------------------------------- */}
-            {/* LEFT / FORM                                                      */}
-            {/* ---------------------------------------------------------------- */}
+
+          {/* HEADER */}
+
+          <div className="mb-10">
+            <p className="label-technical mb-3">
+              CHECKOUT
+            </p>
+
+            <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
+              Complete your order.
+            </h1>
+
+            <p className="mt-3 text-sm text-stone">
+              Enter your delivery details
+              before continuing to payment.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16">
+
+            {/* ================================================================
+               CUSTOMER FORM
+               ================================================================ */}
+
             <form
-              onSubmit={handleSubmit}
+              onSubmit={handleContinueToPayment}
               className="flex flex-col gap-10"
             >
+
               {/* CONTACT */}
+
               <fieldset>
                 <legend className="label-technical mb-5">
                   CONTACT
                 </legend>
 
                 <div className="grid grid-cols-1 gap-4">
+
                   <input
                     required
                     type="email"
                     autoComplete="email"
                     placeholder="EMAIL"
                     value={form.email}
-                    onChange={updateField(
-                      "email"
-                    )}
-                    className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
+                    onChange={updateField("email")}
+                    className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                   />
 
                   <input
                     required
                     type="tel"
+                    inputMode="numeric"
                     autoComplete="tel"
-                    inputMode="tel"
                     placeholder="MOBILE NUMBER"
                     value={form.mobile}
-                    onChange={updateField(
-                      "mobile"
-                    )}
-                    className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
+                    onChange={handleMobileChange}
+                    maxLength={10}
+                    className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                   />
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
                     <input
                       required
                       type="text"
                       autoComplete="given-name"
                       placeholder="FIRST NAME"
-                      value={
-                        form.firstName
-                      }
-                      onChange={updateField(
-                        "firstName"
-                      )}
-                      className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
+                      value={form.firstName}
+                      onChange={updateField("firstName")}
+                      className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                     />
 
                     <input
@@ -824,183 +711,146 @@ export default function CheckoutPage() {
                       type="text"
                       autoComplete="family-name"
                       placeholder="LAST NAME"
-                      value={
-                        form.lastName
-                      }
-                      onChange={updateField(
-                        "lastName"
-                      )}
-                      className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
+                      value={form.lastName}
+                      onChange={updateField("lastName")}
+                      className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                     />
+
                   </div>
+
                 </div>
               </fieldset>
 
-              {/* SHIPPING */}
+              {/* SHIPPING ADDRESS */}
+
               <fieldset>
                 <legend className="label-technical mb-5">
                   SHIPPING ADDRESS
                 </legend>
 
                 <div className="grid grid-cols-1 gap-4">
+
                   <input
                     required
                     type="text"
                     autoComplete="street-address"
                     placeholder="ADDRESS"
-                    value={
-                      form.address
-                    }
-                    onChange={updateField(
-                      "address"
-                    )}
-                    className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none sm:col-span-2"
+                    value={form.address}
+                    onChange={updateField("address")}
+                    className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                   />
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
                     <input
                       required
                       type="text"
                       autoComplete="address-level2"
                       placeholder="CITY"
                       value={form.city}
-                      onChange={updateField(
-                        "city"
-                      )}
-                      className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
+                      onChange={updateField("city")}
+                      className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                     />
 
-                    <input
+                    <select
                       required
-                      type="text"
-                      autoComplete="postal-code"
-                      placeholder="POSTAL CODE"
-                      value={
-                        form.postalCode
+                      value={form.state}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          state: event.target.value,
+                        }))
                       }
-                      onChange={updateField(
-                        "postalCode"
-                      )}
-                      className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
-                    />
+                      className="border border-line-strong bg-void px-4 py-4 text-sm text-bone focus:border-bone focus:outline-none"
+                    >
+                      <option value="" disabled>
+                        SELECT STATE
+                      </option>
+
+                      {INDIAN_STATES.map((state) => (
+                        <option
+                          key={state}
+                          value={state}
+                          className="bg-void"
+                        >
+                          {state}
+                        </option>
+                      ))}
+                    </select>
+
                   </div>
-                </div>
-              </fieldset>
 
-              {/* PAYMENT */}
-              <fieldset>
-                <legend className="label-technical mb-5">
-                  PAYMENT
-                </legend>
-
-                <div className="grid grid-cols-1 gap-4">
                   <input
                     required
                     type="text"
                     inputMode="numeric"
-                    placeholder="CARD NUMBER"
-                    value={
-                      form.cardNumber
-                    }
-                    onChange={updateField(
-                      "cardNumber"
-                    )}
-                    className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
+                    autoComplete="postal-code"
+                    placeholder="PIN CODE"
+                    value={form.postalCode}
+                    onChange={handlePostalCodeChange}
+                    maxLength={6}
+                    className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                   />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      required
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="MM / YY"
-                      value={
-                        form.expiry
-                      }
-                      onChange={updateField(
-                        "expiry"
-                      )}
-                      className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
-                    />
-
-                    <input
-                      required
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="CVC"
-                      value={form.cvc}
-                      onChange={updateField(
-                        "cvc"
-                      )}
-                      className="border border-line-strong bg-transparent px-4 py-3.5 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
-                    />
-                  </div>
                 </div>
-
-                <p className="mt-3 text-xs text-stone-dark">
-                  This is a visual checkout
-                  preview. Card details are
-                  not transmitted or validated,
-                  but the order itself is real
-                  and will appear in the admin
-                  panel.
-                </p>
               </fieldset>
 
+              {/* ERROR */}
+
               {submitError && (
-                <p
-                  role="alert"
-                  className="text-sm text-mango"
-                >
-                  {submitError}
-                </p>
+                <div className="border border-mango/40 bg-mango/5 px-4 py-3">
+                  <p
+                    role="alert"
+                    className="text-sm text-mango"
+                  >
+                    {submitError}
+                  </p>
+                </div>
               )}
+
+              {/* CONTINUE */}
 
               <button
                 type="submit"
-                disabled={
-                  isSubmitting ||
-                  shippingLoading
-                }
-                className="bg-bone py-4 text-center text-xs font-medium tracking-[0.2em] text-void transition-colors hover:bg-mango disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={shippingLoading}
+                className="w-full bg-bone py-4 text-center text-xs font-medium tracking-[0.2em] text-void transition-colors hover:bg-mango disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSubmitting
-                  ? "PLACING ORDER…"
-                  : `PLACE ORDER — ${formatPrice(
+                {shippingLoading
+                  ? "CALCULATING…"
+                  : `CONTINUE TO PAYMENT — ${formatPrice(
                       total
                     )}`}
               </button>
+
             </form>
 
-            {/* ---------------------------------------------------------------- */}
-            {/* RIGHT / ORDER SUMMARY                                             */}
-            {/* ---------------------------------------------------------------- */}
-            <div className="h-fit border border-line bg-charcoal p-6 sm:p-8">
+            {/* ================================================================
+               ORDER SUMMARY
+               ================================================================ */}
+
+            <aside className="h-fit border border-line bg-charcoal p-6 sm:p-8">
+
               <p className="label-technical mb-6">
                 ORDER SUMMARY
               </p>
 
               {/* PRODUCTS */}
+
               <ul className="flex flex-col gap-5">
+
                 {lines.map((line) => (
                   <li
                     key={line.lineId}
                     className="flex gap-4"
                   >
+
                     <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-void">
-                      {line.product
-                        .images[0] &&
-                      !failedLines.has(
-                        line.lineId
-                      ) ? (
+
+                      {line.product.images[0] &&
+                      !failedLines.has(line.lineId) ? (
                         <Image
-                          src={
-                            line.product
-                              .images[0]
-                          }
-                          alt={
-                            line.product.name
-                          }
+                          src={line.product.images[0]}
+                          alt={line.product.name}
                           fill
                           sizes="64px"
                           className="object-cover"
@@ -1008,13 +858,9 @@ export default function CheckoutPage() {
                             setFailedLines(
                               (previous) => {
                                 const next =
-                                  new Set(
-                                    previous
-                                  );
+                                  new Set(previous);
 
-                                next.add(
-                                  line.lineId
-                                );
+                                next.add(line.lineId);
 
                                 return next;
                               }
@@ -1023,26 +869,22 @@ export default function CheckoutPage() {
                         />
                       ) : (
                         <ProductPlaceholderArt
-                          seed={
-                            line.product.id
-                          }
+                          seed={line.product.id}
                           className="h-full w-full"
                         />
                       )}
+
                     </div>
 
                     <div className="flex flex-1 flex-col justify-between">
+
                       <div>
                         <p className="text-sm text-bone">
-                          {
-                            line.product
-                              .name
-                          }
+                          {line.product.name}
                         </p>
 
                         <p className="mt-1 text-xs text-stone">
-                          {line.color} /{" "}
-                          {line.size} ×{" "}
+                          {line.color} / {line.size} ×{" "}
                           {line.quantity}
                         </p>
                       </div>
@@ -1053,28 +895,30 @@ export default function CheckoutPage() {
                             line.quantity
                         )}
                       </p>
+
                     </div>
+
                   </li>
                 ))}
+
               </ul>
 
               <div className="hairline my-6" />
 
-              {/* ---------------------------------------------------------------- */}
-              {/* COUPON                                                           */}
-              {/* ---------------------------------------------------------------- */}
+              {/* COUPON */}
+
               <div className="mb-6">
+
                 <p className="label-technical mb-3">
                   COUPON CODE
                 </p>
 
                 {appliedCoupon ? (
-                  <div className="flex items-center justify-between gap-3 border border-line-strong px-3.5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-bone">
-                        {
-                          appliedCoupon.code
-                        }
+                  <div className="flex items-center justify-between border border-line-strong px-4 py-3">
+
+                    <div>
+                      <p className="font-mono text-xs text-bone">
+                        {appliedCoupon.code}
                       </p>
 
                       <p className="mt-1 text-xs text-mango">
@@ -1089,93 +933,85 @@ export default function CheckoutPage() {
 
                     <button
                       type="button"
-                      onClick={
-                        removeCoupon
-                      }
-                      className="shrink-0 text-xs text-stone transition-colors hover:text-mango"
+                      onClick={removeCoupon}
+                      className="text-xs text-stone transition-colors hover:text-mango"
                     >
                       REMOVE
                     </button>
+
                   </div>
                 ) : (
                   <div className="flex gap-2">
+
                     <input
                       type="text"
-                      autoComplete="off"
-                      value={
-                        couponCode
-                      }
-                      onChange={(e) => {
+                      value={couponCode}
+                      onChange={(event) => {
                         setCouponCode(
-                          e.target.value
+                          event.target.value
                             .toUpperCase()
-                            .replace(
-                              /\s+/g,
-                              ""
-                            )
+                            .replace(/\s+/g, "")
                         );
 
-                        setCouponError(
-                          null
-                        );
+                        setCouponError(null);
                       }}
-                      onKeyDown={(e) => {
-                        if (
-                          e.key === "Enter"
-                        ) {
-                          e.preventDefault();
-                          applyCoupon();
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          applyCouponCode(couponCode);
                         }
                       }}
                       placeholder="ENTER CODE"
-                      className="min-w-0 flex-1 border border-line-strong bg-transparent px-3.5 py-3 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
+                      className="min-w-0 flex-1 border border-line-strong bg-transparent px-4 py-3 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
                     />
 
                     <button
                       type="button"
-                      onClick={
-                        applyCoupon
+                      onClick={() =>
+                        applyCouponCode(couponCode)
                       }
-                      disabled={
-                        couponLoading
-                      }
-                      className="shrink-0 border border-line-strong px-4 py-3 text-xs tracking-[0.12em] text-bone transition-colors hover:border-mango hover:text-mango disabled:opacity-50"
+                      disabled={couponLoading}
+                      className="border border-line-strong px-4 py-3 text-xs tracking-[0.12em] text-bone transition-colors hover:border-mango hover:text-mango disabled:opacity-50"
                     >
                       {couponLoading
                         ? "CHECKING…"
                         : "APPLY"}
                     </button>
+
                   </div>
                 )}
 
-                {/* AVAILABLE COUPONS */}
+                {couponError && (
+                  <p className="mt-2 text-xs text-mango">
+                    {couponError}
+                  </p>
+                )}
+
                 {!appliedCoupon &&
-                  availableCoupons.length >
-                    0 && (
+                  availableCoupons.length > 0 && (
                     <div className="mt-4">
+
                       <p className="mb-2 text-xs text-stone">
                         AVAILABLE COUPONS
                       </p>
 
                       <div className="flex flex-col gap-2">
+
                         {availableCoupons.map(
                           (coupon) => {
-                            const meetsMinimum =
+                            const eligible =
                               currentSubtotal >=
                               coupon.minOrderValue;
 
                             return (
                               <div
-                                key={
-                                  coupon.code
-                                }
-                                className="flex items-center justify-between gap-3 border border-line px-3 py-2.5"
+                                key={coupon.code}
+                                className="flex items-center justify-between border border-line px-3 py-3"
                               >
-                                <div className="min-w-0">
+
+                                <div>
                                   <p className="font-mono text-xs text-bone">
-                                    {
-                                      coupon.code
-                                    }
+                                    {coupon.code}
                                   </p>
 
                                   <p className="mt-1 text-[11px] text-stone">
@@ -1185,66 +1021,52 @@ export default function CheckoutPage() {
                                       : `${formatPrice(
                                           coupon.discountValue
                                         )} OFF`}
-
-                                    {coupon.minOrderValue >
-                                      0
-                                      ? ` · MIN ${formatPrice(
-                                          coupon.minOrderValue
-                                        )}`
-                                      : ""}
                                   </p>
                                 </div>
 
                                 <button
                                   type="button"
+                                  disabled={
+                                    !eligible ||
+                                    couponLoading
+                                  }
                                   onClick={() =>
                                     applyCouponCode(
                                       coupon.code
                                     )
                                   }
-                                  disabled={
-                                    !meetsMinimum ||
-                                    couponLoading
-                                  }
-                                  className="shrink-0 text-xs tracking-[0.12em] text-bone transition-colors hover:text-mango disabled:cursor-not-allowed disabled:text-stone-dark"
+                                  className="text-xs tracking-[0.1em] text-bone hover:text-mango disabled:text-stone-dark"
                                 >
-                                  {meetsMinimum
+                                  {eligible
                                     ? "APPLY"
                                     : "NOT ELIGIBLE"}
                                 </button>
+
                               </div>
                             );
                           }
                         )}
+
                       </div>
+
                     </div>
                   )}
 
                 {couponsLoading &&
-                  availableCoupons.length ===
-                    0 && (
+                  availableCoupons.length === 0 && (
                     <p className="mt-2 text-xs text-stone-dark">
-                      Loading available
-                      coupons…
+                      Loading available coupons…
                     </p>
                   )}
 
-                {couponError && (
-                  <p
-                    role="alert"
-                    className="mt-2 text-xs text-mango"
-                  >
-                    {couponError}
-                  </p>
-                )}
               </div>
 
-              {/* PRICE SUMMARY */}
+              {/* TOTALS */}
+
               <div className="flex flex-col gap-3 font-mono text-sm">
+
                 <div className="flex justify-between text-stone">
-                  <span>
-                    Subtotal
-                  </span>
+                  <span>Subtotal</span>
 
                   <span>
                     {formatPrice(
@@ -1255,53 +1077,40 @@ export default function CheckoutPage() {
 
                 {discount > 0 && (
                   <div className="flex justify-between text-mango">
-                    <span>
-                      Discount
-                      {appliedCoupon
-                        ? ` (${appliedCoupon.code})`
-                        : ""}
-                    </span>
+                    <span>Discount</span>
 
                     <span>
-                      -
-                      {formatPrice(
-                        discount
-                      )}
+                      -{formatPrice(discount)}
                     </span>
                   </div>
                 )}
 
                 <div className="flex justify-between text-stone">
-                  <span>
-                    Shipping
-                  </span>
+                  <span>Shipping</span>
 
                   <span>
                     {shippingLoading
                       ? "…"
                       : shipping === 0
                         ? "FREE"
-                        : formatPrice(
-                            shipping
-                          )}
+                        : formatPrice(shipping)}
                   </span>
                 </div>
 
                 <div className="hairline my-1" />
 
                 <div className="flex justify-between text-base text-bone">
-                  <span>
-                    Total
-                  </span>
+                  <span>Total</span>
 
                   <span>
-                    {formatPrice(
-                      total
-                    )}
+                    {formatPrice(total)}
                   </span>
                 </div>
+
               </div>
-            </div>
+
+            </aside>
+
           </div>
         </div>
       </main>
