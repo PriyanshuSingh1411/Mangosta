@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
+import { getProductSalePrice } from "@/app/data/productTypes";
 import type { Product, ProductCategory } from "@/app/data/productTypes";
 import ProductCard from "@/app/components/ProductCard";
 import { useCartStore } from "@/app/store/useCartStore";
@@ -78,10 +79,10 @@ export default function ShopGrid({
         list = [...list].sort((a, b) => Number(b.isNew) - Number(a.isNew));
         break;
       case "price-asc":
-        list = [...list].sort((a, b) => a.price - b.price);
+        list = [...list].sort((a, b) => getProductSalePrice(a) - getProductSalePrice(b));
         break;
       case "price-desc":
-        list = [...list].sort((a, b) => b.price - a.price);
+        list = [...list].sort((a, b) => getProductSalePrice(b) - getProductSalePrice(a));
         break;
       default:
         break;

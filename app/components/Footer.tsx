@@ -1,6 +1,6 @@
-"use client";
+ "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCursorHover } from "@/app/lib/useCursorHover";
@@ -14,12 +14,13 @@ const SHOP_LINKS = [
 
 const COMPANY_LINKS = [
   { label: "About", href: "/about" },
-  { label: "Contact", href: "/#footer" },
+  { label: "Contact", href: "/contact" },
   { label: "FAQ", href: "/#footer" },
-  { label: "Journal", href: "/#the-mark" },
+  { label: "Trending", href: "/#trending" },
 ];
 
-const SOCIALS = ["INSTAGRAM", "TIKTOK", "PINTEREST"];
+const INSTAGRAM_URL =
+  "https://www.instagram.com/mangosta_clothing?stkn=MWYzZjRwdG9ycmlzaQ==";
 
 export default function Footer() {
   const [email, setEmail] = useState("");
@@ -27,8 +28,14 @@ export default function Footer() {
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [darkMode, setDarkMode] = useState(true);
 
   const viewCursor = useCursorHover("view", "VIEW");
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("mangosta-theme");
+    setDarkMode(stored !== "light");
+  }, []);
 
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>
@@ -162,7 +169,7 @@ export default function Footer() {
           <div className="col-span-2 flex items-center gap-2.5 sm:col-span-1">
             <div className="relative h-7 w-10">
               <Image
-                src="/images/mark-white.png"
+                src={darkMode ? "/images/mark-white.png" : "/images/mark-black.png"}
                 alt=""
                 fill
                 sizes="40px"
@@ -221,17 +228,17 @@ export default function Footer() {
             </p>
 
             <ul className="flex flex-col gap-3">
-              {SOCIALS.map((s) => (
-                <li key={s}>
-                  <a
-                    href="#"
-                    {...viewCursor}
-                    className="text-sm text-stone transition-colors hover:text-bone"
-                  >
-                    {s}
-                  </a>
-                </li>
-              ))}
+              <li>
+                <a
+                  href={INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  {...viewCursor}
+                  className="text-sm text-stone transition-colors hover:text-bone"
+                >
+                  INSTAGRAM
+                </a>
+              </li>
             </ul>
           </div>
         </div>

@@ -5,10 +5,12 @@ import {
   consumeCoupon,
   createOrder,
   getCheckoutSettings,
+  getProduct,
   validateCoupon,
 } from "@/app/lib/dataStore";
 
 import type { OrderLine } from "@/app/lib/dataStore";
+import { getProductSalePrice } from "@/app/data/productTypes";
 
 interface CheckoutLineInput {
   lineId: string;
@@ -154,25 +156,48 @@ export async function POST(req: NextRequest) {
     /* Prepare order lines                                                    */
     /* ---------------------------------------------------------------------- */
 
-    const lines: OrderLine[] = (
-      body.lines as CheckoutLineInput[]
-    ).map((line) => ({
-      lineId: String(line.lineId),
-      productId: String(line.productId),
-      productName: String(line.productName),
-      slug: String(line.slug),
-      image: line.image || "",
-      size: String(line.size || ""),
-      color: String(line.color || ""),
-      quantity: Math.max(
+    const inputLines = body.lines as CheckoutLineInput[];
+    const lines: OrderLine[] = [];
+
+    for (const line of inputLines) {
+      const product = await getProduct(String(line.productId));
+
+      if (!product) {
+        return NextResponse.json(
+          {
+            error: `Product "${String(line.productName)}" is no longer available.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const quantity = Math.max(
         1,
         Number(line.quantity) || 1
-      ),
-      price: Math.max(
-        0,
-        Number(line.price) || 0
-      ),
-    }));
+      );
+
+      if (product.inventory < quantity) {
+        return NextResponse.json(
+          {
+            error: `${product.name} does not have enough inventory.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      lines.push({
+        lineId: String(line.lineId),
+        productId: product.id,
+        productName: product.name,
+        slug: product.slug,
+        image: product.images?.[0] || "",
+        size: String(line.size || ""),
+        color: String(line.color || ""),
+        quantity,
+        // Never trust the price supplied by the browser.
+        price: getProductSalePrice(product),
+      });
+    }
 
     /* ---------------------------------------------------------------------- */
     /* Calculate subtotal                                                     */

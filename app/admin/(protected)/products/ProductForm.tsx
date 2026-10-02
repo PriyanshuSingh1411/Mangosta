@@ -72,6 +72,7 @@ type FormState = {
   category: ProductCategory;
   price: string;
   compareAtPrice: string;
+  discountPercent: string;
   description: string;
   details: string;
   colors: ProductColor[];
@@ -90,6 +91,7 @@ function productToForm(product?: Product): FormState {
       category: "t-shirts",
       price: "",
       compareAtPrice: "",
+      discountPercent: "",
       description: "",
       details: "",
       colors: [],
@@ -109,6 +111,10 @@ function productToForm(product?: Product): FormState {
     compareAtPrice: product.compareAtPrice
       ? String(product.compareAtPrice)
       : "",
+    discountPercent:
+      product.discountPercent != null
+        ? String(product.discountPercent)
+        : "",
     description: product.description,
     details: product.details.join("\n"),
     colors:
@@ -354,6 +360,14 @@ export default function ProductForm({
       compareAtPrice: form.compareAtPrice
         ? parseFloat(form.compareAtPrice)
         : undefined,
+
+      discountPercent:
+        form.discountPercent === ""
+          ? undefined
+          : Math.min(
+              100,
+              Math.max(0, parseFloat(form.discountPercent) || 0)
+            ),
 
       description: form.description.trim(),
 
@@ -640,6 +654,30 @@ export default function ProductForm({
             />
           </Field>
 
+          <Field label="Discount (% OFF)">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={form.discountPercent}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "") {
+                  update("discountPercent", "");
+                  return;
+                }
+                const numericValue = Number(value);
+                update(
+                  "discountPercent",
+                  String(Math.min(100, Math.max(0, numericValue)))
+                );
+              }}
+              className={inputClass}
+              placeholder="10"
+            />
+          </Field>
+
           <Field label="Inventory">
             <input
               type="number"
@@ -656,6 +694,40 @@ export default function ProductForm({
             />
           </Field>
         </div>
+
+        {Number(form.discountPercent) > 0 && Number(form.price) > 0 && (
+          <div className="border border-mango/30 bg-mango/5 p-4">
+            <p className="label-technical text-mango">SALE PRICE PREVIEW</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <span className="font-mono text-sm text-stone-dark line-through">
+                {new Intl.NumberFormat("en-IN", {
+                  style: "currency",
+                  currency: "INR",
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(Number(form.price) || 0)}
+              </span>
+              <span className="font-mono text-lg text-bone">
+                {new Intl.NumberFormat("en-IN", {
+                  style: "currency",
+                  currency: "INR",
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(
+                  Number(
+                    (
+                      (Number(form.price) || 0) *
+                      (1 - Math.min(100, Math.max(0, Number(form.discountPercent) || 0)) / 100)
+                    ).toFixed(2)
+                  )
+                )}
+              </span>
+              <span className="text-xs font-medium tracking-wider text-mango">
+                {form.discountPercent}% OFF
+              </span>
+            </div>
+          </div>
+        )}
 
         <label className="flex items-center gap-2 text-sm text-bone-dim">
           <input

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { getProductSalePrice } from "@/app/data/productTypes";
 import type { Product } from "@/app/data/productTypes";
 
 export interface CartLine {
@@ -31,6 +32,7 @@ interface CartState {
   setSearchQuery: (query: string) => void;
   clearSearchQuery: () => void;
   subtotal: () => number;
+  syncProducts: () => Promise<void>;
   itemCount: () => number;
   clearCart: () => void;
 }
@@ -85,7 +87,37 @@ export const useCartStore = create<CartState>()(
       clearSearchQuery: () => set({ searchQuery: "" }),
 
       subtotal: () => {
-        return get().lines.reduce((sum, l) => sum + l.product.price * l.quantity, 0);
+        return get().lines.reduce(
+          (sum, l) =>
+            sum + getProductSalePrice(l.product) * l.quantity,
+          0
+        );
+      },
+
+      syncProducts: async () => {
+        try {
+          const response = await fetch("/api/products", {
+            cache: "no-store",
+          });
+
+          if (!response.ok) return;
+
+          const products: Product[] = await response.json();
+          const productsById = new Map(
+            products.map((product) => [product.id, product])
+          );
+
+          set((state) => ({
+            lines: state.lines.map((line) => {
+              const freshProduct = productsById.get(line.product.id);
+              return freshProduct
+                ? { ...line, product: freshProduct }
+                : line;
+            }),
+          }));
+        } catch {
+          // Keep the persisted cart if the product refresh fails.
+        }
       },
 
       itemCount: () => {

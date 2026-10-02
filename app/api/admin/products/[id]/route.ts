@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/app/lib/adminAuth";
 import { getProducts, getProduct, upsertProduct, deleteProduct, slugify } from "@/app/lib/dataStore";
 
+function normalizeDiscount(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const discount = Number(value);
+
+  if (!Number.isFinite(discount)) {
+    return undefined;
+  }
+
+  return Number(Math.min(100, Math.max(0, discount)).toFixed(2));
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -32,6 +46,10 @@ export async function PUT(
   }
 
   const allProducts = await getProducts();
+  const discountPercent =
+    body.discountPercent === undefined
+      ? existingProduct.discountPercent
+      : normalizeDiscount(body.discountPercent);
 
   // Re-slugify only if the name or an explicit slug changed, and keep it
   // unique against every other product (excluding itself).
@@ -56,6 +74,7 @@ export async function PUT(
       body.compareAtPrice !== undefined && body.compareAtPrice !== null && body.compareAtPrice !== ""
         ? Number(body.compareAtPrice)
         : undefined,
+    discountPercent,
     description: body.description ?? existingProduct.description,
     details: Array.isArray(body.details) ? body.details.filter(Boolean) : existingProduct.details,
     colors: Array.isArray(body.colors) ? body.colors : existingProduct.colors,

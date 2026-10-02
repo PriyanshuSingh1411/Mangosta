@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
@@ -11,8 +11,14 @@ export default function LoadingScreen() {
   const counterRef = useRef<HTMLSpanElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
   const [isDone, setIsDone] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
   const setLoaded = useSiteStore((s) => s.setLoaded);
   const prefersReducedMotion = useSiteStore((s) => s.prefersReducedMotion);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("mangosta-theme");
+    setDarkMode(stored !== "light");
+  }, []);
 
   useEffect(() => {
     const counterObj = { value: 0 };
@@ -73,14 +79,14 @@ export default function LoadingScreen() {
         className="pointer-events-none absolute inset-0 opacity-[0.06] mix-blend-overlay"
         style={{
           backgroundImage:
-            "url(\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyMDAnIGhlaWdodD0nMjAwJz48ZmlsdGVyIGlkPSdub2lzZSc+PGZlVHVyYnVsZW5jZSB0eXBlPSdmcmFjdGFsTm9pc2UnIGJhc2VGcmVxdWVuY3k9JzAuOScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbHRlcj0ndXJsKCNub2lzZSknLz48L3N2Zz4=\")",
+            "url(\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9JzIwMCcgaGVpZ2h0PScyMDAiPjxmY2x1dGVyIGlkPSdub2lzZSc+PGZlVHVyYnVsZW5jZSB0eXBlPSdmcmFjdGFsTm9pc2UnIGJhc2VGcmVxdWVuY3k9JzAuOScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbHRlcj0ndXJsKCNub2lzZScpJy8+PC9zdmc+\")",
         }}
       />
 
       <div ref={logoRef} className="relative flex flex-col items-center gap-6">
         <div className="relative h-16 w-16 sm:h-20 sm:w-20">
           <Image
-            src="/images/mark-white.png"
+            src={darkMode ? "/images/mark-white.png" : "/images/mark-black.png"}
             alt=""
             fill
             sizes="80px"

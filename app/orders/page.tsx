@@ -118,11 +118,11 @@ export default function OrdersPage() {
   const statusClass = (status: Order["status"]) => {
     switch (status) {
       case "fulfilled":
-        return "text-bone";
+        return "text-orange-400";
       case "cancelled":
-        return "text-stone";
+        return "text-red-500";
       default:
-        return "text-mango";
+        return "text-blue-400";
     }
   };
 
@@ -331,15 +331,15 @@ export default function OrdersPage() {
 
                                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone">
                                   <span>
-                                    COLOR — {line.color}
+                                    COLOR: {line.color}
                                   </span>
 
                                   <span>
-                                    SIZE — {line.size}
+                                    SIZE: {line.size}
                                   </span>
 
                                   <span>
-                                    QTY — {line.quantity}
+                                    QTY: {line.quantity}
                                   </span>
                                 </div>
                               </div>

@@ -22,6 +22,7 @@ export interface Product {
   category: ProductCategory;
   price: number;
   compareAtPrice?: number;
+  discountPercent?: number;
 
   // All product prices are stored/displayed in Indian Rupees.
   currency: "INR";
@@ -43,6 +44,30 @@ export function formatPrice(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(value) || 0);
+}
+
+/**
+ * Returns the actual customer price after the product-level percentage discount.
+ * `price` remains the original/base product price.
+ */
+export function getProductSalePrice(product: Product): number {
+  const price = Math.max(0, Number(product.price) || 0);
+  const discount = Math.min(
+    100,
+    Math.max(0, Number(product.discountPercent) || 0)
+  );
+
+  if (discount <= 0) {
+    return Number(price.toFixed(2));
+  }
+
+  return Number(
+    (price - (price * discount) / 100).toFixed(2)
+  );
+}
+
+export function hasProductDiscount(product: Product): boolean {
+  return Number(product.discountPercent) > 0;
 }
 
 export function slugify(name: string): string {

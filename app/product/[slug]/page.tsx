@@ -5,7 +5,8 @@ import Navigation from "@/app/components/Navigation";
 import Footer from "@/app/components/Footer";
 import ProductCard from "@/app/components/ProductCard";
 import ProductDetail from "./ProductDetail";
-import { getAllProducts, getProductBySlug, formatPrice } from "@/app/data/products";
+import { getAllProducts, getProductBySlug } from "@/app/data/products";
+import { getProductSalePrice } from "@/app/data/productTypes";
 
 // Products can be added/edited/deleted via the admin panel at any time, so:
 // - generateStaticParams seeds the known slugs at build time for speed, but
@@ -14,7 +15,7 @@ import { getAllProducts, getProductBySlug, formatPrice } from "@/app/data/produc
 //   instead of 404ing), and
 // - revalidate keeps already-built product pages from serving stale data
 //   indefinitely after an admin edit.
-export const revalidate = 10;
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   const products = await getAllProducts();
@@ -64,7 +65,7 @@ export default async function ProductPage({
     brand: { "@type": "Brand", name: "MANGOSTA" },
     offers: {
       "@type": "Offer",
-      price: product.price,
+      price: getProductSalePrice(product),
       priceCurrency: product.currency,
       availability:
         product.inventory > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",

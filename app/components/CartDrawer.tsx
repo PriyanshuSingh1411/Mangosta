@@ -5,15 +5,30 @@ import Link from "next/link";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCartStore } from "@/app/store/useCartStore";
-import { formatPrice } from "@/app/data/productTypes";
+import {
+  formatPrice,
+  getProductSalePrice,
+  hasProductDiscount,
+} from "@/app/data/productTypes";
 import ProductPlaceholderArt from "./ProductPlaceholderArt";
 import { useCursorHover } from "@/app/lib/useCursorHover";
 
 export default function CartDrawer() {
-  const { isBagOpen, closeBag, lines, updateQuantity, removeLine, subtotal } = useCartStore();
+  const {
+    isBagOpen,
+    closeBag,
+    lines,
+    updateQuantity,
+    removeLine,
+    subtotal,
+  } = useCartStore();
+
   const viewCursor = useCursorHover("view", "VIEW");
   const shopCursor = useCursorHover("shop", "SHOP");
-  const [failedLines, setFailedLines] = useState<Set<string>>(new Set());
+
+  const [failedLines, setFailedLines] = useState<Set<string>>(
+    new Set()
+  );
 
   useEffect(() => {
     if (isBagOpen) {
@@ -21,6 +36,7 @@ export default function CartDrawer() {
     } else {
       document.body.style.overflow = "";
     }
+
     return () => {
       document.body.style.overflow = "";
     };
@@ -28,16 +44,23 @@ export default function CartDrawer() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isBagOpen) closeBag();
+      if (e.key === "Escape" && isBagOpen) {
+        closeBag();
+      }
     };
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [isBagOpen, closeBag]);
 
   return (
     <AnimatePresence>
       {isBagOpen && (
         <>
+          {/* BACKDROP */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -47,20 +70,27 @@ export default function CartDrawer() {
             className="fixed inset-0 z-[9993] bg-void/70 backdrop-blur-sm"
             aria-hidden="true"
           />
+
+          {/* DRAWER */}
           <motion.div
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            transition={{
+              duration: 0.45,
+              ease: [0.16, 1, 0.3, 1],
+            }}
             className="fixed inset-y-0 right-0 z-[9994] flex w-full max-w-md flex-col bg-charcoal"
             role="dialog"
             aria-modal="true"
             aria-label="Shopping bag"
           >
+            {/* HEADER */}
             <div className="flex items-center justify-between border-b border-line px-5 py-5 sm:px-6 sm:py-6">
               <h2 className="label-technical">
                 BAG {lines.length > 0 && `(${lines.length})`}
               </h2>
+
               <button
                 type="button"
                 onClick={closeBag}
@@ -72,9 +102,13 @@ export default function CartDrawer() {
               </button>
             </div>
 
+            {/* EMPTY BAG */}
             {lines.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-                <p className="text-sm text-stone">Your bag is empty.</p>
+                <p className="text-sm text-stone">
+                  Your bag is empty.
+                </p>
+
                 <Link
                   href="/shop"
                   onClick={closeBag}
@@ -86,86 +120,182 @@ export default function CartDrawer() {
               </div>
             ) : (
               <>
-                <div data-lenis-prevent className="flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6">
+                {/* PRODUCTS */}
+                <div
+                  data-lenis-prevent
+                  className="flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6"
+                >
                   <ul className="flex flex-col gap-6">
-                    {lines.map((line) => (
-                      <li key={line.lineId} className="flex gap-4">
-                        <Link
-                          href={`/product/${line.product.slug}`}
-                          onClick={closeBag}
-                          className="relative h-24 w-20 shrink-0 overflow-hidden bg-void"
-                          {...viewCursor}
+                    {lines.map((line) => {
+                      const salePrice = getProductSalePrice(
+                        line.product
+                      );
+
+                      const hasDiscount =
+                        hasProductDiscount(line.product);
+
+                      const discountPercent =
+                        Number(
+                          line.product.discountPercent
+                        ) || 0;
+
+                      const originalLinePrice =
+                        Number(line.product.price || 0) *
+                        line.quantity;
+
+                      const saleLinePrice =
+                        salePrice * line.quantity;
+
+                      return (
+                        <li
+                          key={line.lineId}
+                          className="flex gap-4"
                         >
-                          {line.product.images[0] && !failedLines.has(line.lineId) ? (
-                            <Image
-                              src={line.product.images[0]}
-                              alt={line.product.name}
-                              fill
-                              sizes="80px"
-                              className="object-cover"
-                              onError={() =>
-                                setFailedLines((prev) => new Set(prev).add(line.lineId))
-                              }
-                            />
-                          ) : (
-                            <ProductPlaceholderArt seed={line.product.id} className="h-full w-full" />
-                          )}
-                        </Link>
-                        <div className="flex min-w-0 flex-1 flex-col justify-between">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-bone">{line.product.name}</p>
-                              <p className="mt-1 text-xs text-stone">
-                                {line.color} / {line.size}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeLine(line.lineId)}
-                              aria-label={`Remove ${line.product.name}`}
-                              className="text-xs text-stone-dark transition-colors hover:text-bone"
-                            >
-                              REMOVE
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center border border-line-strong">
+                          {/* PRODUCT IMAGE */}
+                          <Link
+                            href={`/product/${line.product.slug}`}
+                            onClick={closeBag}
+                            className="relative h-24 w-20 shrink-0 overflow-hidden bg-void"
+                            {...viewCursor}
+                          >
+                            {line.product.images[0] &&
+                            !failedLines.has(line.lineId) ? (
+                              <Image
+                                src={line.product.images[0]}
+                                alt={line.product.name}
+                                fill
+                                sizes="80px"
+                                className="object-cover"
+                                onError={() =>
+                                  setFailedLines(
+                                    (prev) => {
+                                      const next =
+                                        new Set(prev);
+
+                                      next.add(
+                                        line.lineId
+                                      );
+
+                                      return next;
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              <ProductPlaceholderArt
+                                seed={line.product.id}
+                                className="h-full w-full"
+                              />
+                            )}
+                          </Link>
+
+                          {/* PRODUCT INFO */}
+                          <div className="flex min-w-0 flex-1 flex-col justify-between">
+                            {/* NAME + REMOVE */}
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-bone">
+                                  {line.product.name}
+                                </p>
+
+                                <p className="mt-1 text-xs text-stone">
+                                  {line.color} / {line.size}
+                                </p>
+                              </div>
+
                               <button
                                 type="button"
-                                onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
-                                aria-label="Decrease quantity"
-                                className="flex h-9 w-9 items-center justify-center text-bone-dim transition-colors hover:text-bone sm:h-7 sm:w-7"
+                                onClick={() =>
+                                  removeLine(line.lineId)
+                                }
+                                aria-label={`Remove ${line.product.name}`}
+                                className="text-xs text-stone-dark transition-colors hover:text-bone"
                               >
-                                −
-                              </button>
-                              <span className="w-6 text-center font-mono text-xs text-bone">
-                                {line.quantity}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
-                                aria-label="Increase quantity"
-                                className="flex h-9 w-9 items-center justify-center text-bone-dim transition-colors hover:text-bone sm:h-7 sm:w-7"
-                              >
-                                +
+                                REMOVE
                               </button>
                             </div>
-                            <p className="font-mono text-sm text-bone-dim">
-                              {formatPrice(line.product.price * line.quantity)}
-                            </p>
+
+                            {/* QUANTITY + PRICE */}
+                            <div className="flex items-end justify-between gap-3">
+                              {/* QUANTITY */}
+                              <div className="flex items-center border border-line-strong">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      line.lineId,
+                                      line.quantity - 1
+                                    )
+                                  }
+                                  aria-label="Decrease quantity"
+                                  className="flex h-9 w-9 items-center justify-center text-bone-dim transition-colors hover:text-bone sm:h-7 sm:w-7"
+                                >
+                                  −
+                                </button>
+
+                                <span className="w-6 text-center font-mono text-xs text-bone">
+                                  {line.quantity}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      line.lineId,
+                                      line.quantity + 1
+                                    )
+                                  }
+                                  aria-label="Increase quantity"
+                                  className="flex h-9 w-9 items-center justify-center text-bone-dim transition-colors hover:text-bone sm:h-7 sm:w-7"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              {/* PRICE */}
+                              <div className="flex flex-col items-end">
+                                {hasDiscount && (
+                                  <span className="font-mono text-[11px] text-stone-dark line-through">
+                                    {formatPrice(
+                                      originalLinePrice
+                                    )}
+                                  </span>
+                                )}
+
+                                <span className="font-mono text-sm text-bone-dim">
+                                  {formatPrice(
+                                    saleLinePrice
+                                  )}
+                                </span>
+
+                                {hasDiscount && (
+                                  <span className="mt-1 text-[9px] font-medium tracking-[0.12em] text-mango">
+                                    {discountPercent}% OFF
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
 
+                {/* FOOTER */}
                 <div className="border-t border-line px-5 py-5 sm:px-6 sm:py-6">
                   <div className="mb-5 flex items-center justify-between">
-                    <span className="label-technical">SUBTOTAL</span>
-                    <span className="font-mono text-base text-bone">{formatPrice(subtotal())}</span>
+                    <span className="label-technical">
+                      SUBTOTAL
+                    </span>
+
+                    <span className="font-mono text-base text-bone">
+                      {formatPrice(subtotal())}
+                    </span>
                   </div>
+
                   <div className="flex flex-col gap-3">
+                    {/* VIEW BAG */}
                     <Link
                       href="/bag"
                       onClick={closeBag}
@@ -174,6 +304,8 @@ export default function CartDrawer() {
                     >
                       VIEW BAG
                     </Link>
+
+                    {/* CHECKOUT */}
                     <Link
                       href="/checkout"
                       onClick={closeBag}

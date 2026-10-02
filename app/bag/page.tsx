@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
 import Navigation from "@/app/components/Navigation";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
 import { useCartStore } from "@/app/store/useCartStore";
-import { formatPrice } from "@/app/data/productTypes";
+import {
+  formatPrice,
+  getProductSalePrice,
+  hasProductDiscount,
+} from "@/app/data/productTypes";
 
 export default function BagPage() {
   const {
@@ -21,6 +25,10 @@ export default function BagPage() {
   const [failedLines, setFailedLines] = useState<Set<string>>(
     new Set()
   );
+
+  useEffect(() => {
+    void useCartStore.getState().syncProducts();
+  }, []);
 
   const currentSubtotal = subtotal();
 
@@ -124,11 +132,23 @@ export default function BagPage() {
                               </p>
                             </div>
 
-                            <p className="shrink-0 font-mono text-sm text-bone">
-                              {formatPrice(
-                                line.product.price * line.quantity
+                            <div className="shrink-0 text-right">
+                              {hasProductDiscount(line.product) && (
+                                <p className="font-mono text-xs text-stone-dark line-through">
+                                  {formatPrice(line.product.price * line.quantity)}
+                                </p>
                               )}
-                            </p>
+                              <p className="font-mono text-sm text-bone">
+                                {formatPrice(
+                                  getProductSalePrice(line.product) * line.quantity
+                                )}
+                              </p>
+                              {hasProductDiscount(line.product) && (
+                                <p className="mt-1 text-[10px] tracking-wider text-mango">
+                                  {Number(line.product.discountPercent) || 0}% OFF
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
 

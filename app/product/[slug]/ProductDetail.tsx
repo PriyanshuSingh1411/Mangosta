@@ -3,7 +3,11 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import type { Product } from "@/app/data/productTypes";
-import { formatPrice } from "@/app/data/productTypes";
+import {
+  formatPrice,
+  getProductSalePrice,
+  hasProductDiscount,
+} from "@/app/data/productTypes";
 import { useCartStore } from "@/app/store/useCartStore";
 import { useAuth } from "@/app/components/AuthProvider";
 import { flyToBag } from "@/app/lib/flyToBag";
@@ -25,6 +29,9 @@ export default function ProductDetail({ product }: { product: Product }) {
   const openBag = useCartStore((s) => s.openBag);
 
   const activeImage = product.images[activeImageIndex];
+  const salePrice = getProductSalePrice(product);
+  const hasDiscount = hasProductDiscount(product);
+  const discountPercent = Number(product.discountPercent) || 0;
   const activeImageFailed = failedImages.has(activeImageIndex);
 
   const addProductToBag = () => {
@@ -136,14 +143,32 @@ export default function ProductDetail({ product }: { product: Product }) {
         <h1 className="font-display text-4xl leading-[0.95] tracking-tight text-bone sm:text-5xl">
           {product.name}
         </h1>
-        <p className="mt-4 font-mono text-xl text-bone-dim">
-          {formatPrice(product.price)}
-          {product.compareAtPrice && (
-            <span className="ml-3 text-sm text-stone-dark line-through">
-              {formatPrice(product.compareAtPrice)}
-            </span>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {hasDiscount ? (
+            <>
+              <span className="font-mono text-sm text-stone-dark line-through">
+                {formatPrice(product.price)}
+              </span>
+              <span className="font-mono text-xl text-bone-dim">
+                {formatPrice(salePrice)}
+              </span>
+              <span className="text-xs font-medium tracking-wider text-mango">
+                {discountPercent}% OFF
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="font-mono text-xl text-bone-dim">
+                {formatPrice(product.price)}
+              </span>
+              {product.compareAtPrice && (
+                <span className="text-sm text-stone-dark line-through">
+                  {formatPrice(product.compareAtPrice)}
+                </span>
+              )}
+            </>
           )}
-        </p>
+        </div>
 
         <p className="mt-6 max-w-md text-sm leading-relaxed text-stone">{product.description}</p>
 

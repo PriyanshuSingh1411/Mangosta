@@ -4,7 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Product } from "@/app/data/productTypes";
-import { formatPrice } from "@/app/data/productTypes";
+import {
+  formatPrice,
+  getProductSalePrice,
+  hasProductDiscount,
+} from "@/app/data/productTypes";
 import { useCartStore } from "@/app/store/useCartStore";
 import { useAuth } from "@/app/components/AuthProvider";
 import ProductPlaceholderArt from "./ProductPlaceholderArt";
@@ -32,6 +36,9 @@ export default function ProductCard({
   const { user, loading: authLoading, openAuth } = useAuth();
 
   const primaryImage = product.images[0];
+  const salePrice = getProductSalePrice(product);
+  const hasDiscount = hasProductDiscount(product);
+  const discountPercent = Number(product.discountPercent) || 0;
 
   const openPicker = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -92,7 +99,7 @@ export default function ProductCard({
 
         <Link
           href={`/product/${product.slug}`}
-          aria-label={`View ${product.name}, ${formatPrice(product.price)}`}
+          aria-label={`View ${product.name}, ${formatPrice(salePrice)}`}
           className="block"
         >
           <div className="relative aspect-[3/4] overflow-hidden bg-charcoal">
@@ -192,9 +199,23 @@ export default function ProductCard({
           </Link>
 
           <div className="flex shrink-0 items-start gap-3">
-            <p className="font-mono text-sm text-bone-dim">
-              {formatPrice(product.price)}
-            </p>
+            <div className="flex flex-col items-end">
+              <div className="flex items-center gap-2">
+                {hasDiscount && (
+                  <span className="font-mono text-xs text-stone-dark line-through">
+                    {formatPrice(product.price)}
+                  </span>
+                )}
+                <span className="font-mono text-sm text-bone-dim">
+                  {formatPrice(salePrice)}
+                </span>
+              </div>
+              {hasDiscount && (
+                <span className="mt-1 text-[10px] font-medium tracking-wider text-mango">
+                  {discountPercent}% OFF
+                </span>
+              )}
+            </div>
 
             {/* ========================================================
                 + BUTTON
@@ -265,9 +286,21 @@ export default function ProductCard({
                   {product.name}
                 </h2>
 
-                <p className="mt-2 font-mono text-sm text-bone-dim">
-                  {formatPrice(product.price)}
-                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  {hasDiscount && (
+                    <span className="font-mono text-xs text-stone-dark line-through">
+                      {formatPrice(product.price)}
+                    </span>
+                  )}
+                  <span className="font-mono text-sm text-bone-dim">
+                    {formatPrice(salePrice)}
+                  </span>
+                  {hasDiscount && (
+                    <span className="text-[10px] tracking-wider text-mango">
+                      {discountPercent}% OFF
+                    </span>
+                  )}
+                </div>
               </div>
 
               <button

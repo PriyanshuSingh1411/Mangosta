@@ -36,6 +36,8 @@ type Order = {
   lines: OrderLine[];
   subtotal: number;
   shipping: number;
+  discount?: number;
+  couponCode?: string;
   total: number;
 };
 
@@ -137,25 +139,73 @@ useEffect(() => {
   const statusClass = (status: Order["status"]) => {
     switch (status) {
       case "fulfilled":
-        return "text-bone";
+        return "text-orange-400";
       case "cancelled":
-        return "text-stone";
+        return "text-red-500";
       default:
-        return "text-mango";
+        return "text-blue-400";
     }
+  };
+
+  const handleDownloadSummary = () => {
+    window.print();
   };
 
   return (
     <>
+      <style jsx global>{`
+        @media print {
+          body {
+            background: #fff !important;
+          }
+
+          body * {
+            visibility: hidden;
+          }
+
+          .order-print-area,
+          .order-print-area * {
+            visibility: visible;
+          }
+
+          .order-print-area {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            padding: 32px !important;
+            background: #fff !important;
+            color: #111 !important;
+          }
+
+          .order-print-area .print-hidden {
+            display: none !important;
+          }
+
+          .order-print-area section,
+          .order-print-area aside {
+            background: #fff !important;
+            border-color: #ddd !important;
+            color: #111 !important;
+          }
+
+          .order-print-area .text-bone,
+          .order-print-area .text-stone,
+          .order-print-area .text-orange-400,
+          .order-print-area .text-red-500,
+          .order-print-area .text-blue-400 {
+            color: #111 !important;
+          }
+        }
+      `}</style>
       <Navigation />
 
-      <main className="min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
+      <main className="order-print-area min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
         <div className="mx-auto max-w-6xl">
 
           {/* BACK */}
           <Link
             href="/orders"
-            className="label-technical inline-flex items-center gap-2 text-stone transition-colors hover:text-bone"
+            className="print-hidden label-technical inline-flex items-center gap-2 text-stone transition-colors hover:text-bone"
           >
             <span>←</span>
             <span>YOUR ORDERS</span>
@@ -379,6 +429,30 @@ useEffect(() => {
                           {formatPrice(order.shipping)}
                         </span>
                       </div>
+
+                      {order.couponCode && (order.discount ?? 0) > 0 && (
+                        <>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="label-technical text-stone">
+                              COUPON — {order.couponCode}
+                            </span>
+
+                            <span className="font-mono text-sm text-orange-400">
+                              -{formatPrice(order.discount ?? 0)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-stone">
+                              DISCOUNT APPLIED
+                            </span>
+
+                            <span className="text-xs font-medium text-orange-400">
+                              {formatPrice(order.discount ?? 0)} OFF
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="my-6 border-t border-line" />
@@ -393,7 +467,15 @@ useEffect(() => {
                       </span>
                     </div>
 
-                    <div className="mt-7">
+                    <div className="mt-7 space-y-3 print-hidden">
+                      <button
+                        type="button"
+                        onClick={handleDownloadSummary}
+                        className="block w-full border border-bone bg-bone py-3.5 text-center text-xs font-medium tracking-[0.16em] text-void transition-opacity hover:opacity-80"
+                      >
+                        DOWNLOAD ORDER SUMMARY
+                      </button>
+
                       <Link
                         href="/orders"
                         className="block w-full border border-line-strong py-3.5 text-center text-xs font-medium tracking-[0.16em] text-bone transition-colors hover:border-bone"

@@ -8,6 +8,20 @@ import {
 } from "@/app/lib/dataStore";
 import type { Product } from "@/app/data/productTypes";
 
+function normalizeDiscount(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const discount = Number(value);
+
+  if (!Number.isFinite(discount)) {
+    return undefined;
+  }
+
+  return Number(Math.min(100, Math.max(0, discount)).toFixed(2));
+}
+
 export async function GET() {
   if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,6 +49,8 @@ export async function POST(req: NextRequest) {
     slug = `${slugBase}-${n++}`;
   }
 
+  const discountPercent = normalizeDiscount(body.discountPercent);
+
   const product: Product = {
     id: generateProductId(existing),
     slug,
@@ -42,6 +58,7 @@ export async function POST(req: NextRequest) {
     category: body.category || "t-shirts",
     price: Number(body.price) || 0,
     compareAtPrice: body.compareAtPrice ? Number(body.compareAtPrice) : undefined,
+    discountPercent,
     currency: "INR",
     description: body.description || "",
     details: Array.isArray(body.details) ? body.details.filter(Boolean) : [],

@@ -7,7 +7,11 @@ import Image from "next/image";
 import Navigation from "@/app/components/Navigation";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
 import { useCartStore } from "@/app/store/useCartStore";
-import { formatPrice } from "@/app/data/productTypes";
+import {
+  formatPrice,
+  getProductSalePrice,
+  hasProductDiscount,
+} from "@/app/data/productTypes";
 
 type PaymentMethod =
   | "cod"
@@ -54,6 +58,9 @@ export default function PaymentPage() {
   const [placed, setPlaced] =
     useState(false);
 
+  const [placedOrderId, setPlacedOrderId] =
+    useState<string | null>(null);
+
   const [failedLines, setFailedLines] =
     useState<Set<string>>(new Set());
 
@@ -62,6 +69,10 @@ export default function PaymentPage() {
    * Load checkout information
    * --------------------------------------------------------------------------
    */
+
+  useEffect(() => {
+    void useCartStore.getState().syncProducts();
+  }, []);
 
   useEffect(() => {
     try {
@@ -152,7 +163,7 @@ export default function PaymentPage() {
                   line.quantity,
 
                 price:
-                  line.product.price,
+                  getProductSalePrice(line.product),
               })
             ),
 
@@ -178,40 +189,19 @@ export default function PaymentPage() {
 
       /*
        * Order successfully created.
+       * Show the confirmation modal first instead of
+       * immediately redirecting to the order details page.
        */
 
+      const orderId =
+        data?.order?.id || data?.orderId || null;
+
+      setPlacedOrderId(orderId);
       clearCart();
 
       sessionStorage.removeItem(
         "mangosta-checkout"
       );
-
-      /*
-       * If API returns order ID,
-       * go directly to order details.
-       */
-
-      if (data?.order?.id) {
-        window.location.href =
-          `/orders/${encodeURIComponent(
-            data.order.id
-          )}`;
-
-        return;
-      }
-
-      if (data?.orderId) {
-        window.location.href =
-          `/orders/${encodeURIComponent(
-            data.orderId
-          )}`;
-
-        return;
-      }
-
-      /*
-       * Fallback confirmation.
-       */
 
       setPlaced(true);
     } catch (err) {
@@ -256,28 +246,62 @@ export default function PaymentPage() {
       <>
         <Navigation />
 
-        <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-void px-6 text-center">
+        <main className="relative flex min-h-screen items-center justify-center bg-void px-6 py-28 text-center">
+          <div className="pointer-events-none absolute inset-0 bg-bone/[0.02]" />
 
-          <p className="label-technical">
-            ORDER CONFIRMED
-          </p>
-
-          <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
-            Thank you.
-          </h1>
-
-          <p className="max-w-md text-sm leading-relaxed text-stone">
-            Your order has been placed
-            successfully.
-          </p>
-
-          <Link
-            href="/orders"
-            className="border border-line-strong px-6 py-3 text-xs tracking-[0.15em] text-bone transition-colors hover:border-mango hover:text-mango"
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-confirmed-title"
+            className="relative w-full max-w-lg border border-line-strong bg-charcoal p-8 shadow-2xl sm:p-10"
           >
-            VIEW YOUR ORDERS
-          </Link>
+            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-mango/50 text-mango">
+              <span className="text-xl">✓</span>
+            </div>
 
+            <p className="label-technical mb-3 text-mango">
+              ORDER CONFIRMED
+            </p>
+
+            <h1
+              id="order-confirmed-title"
+              className="font-display text-4xl tracking-tight text-bone sm:text-5xl"
+            >
+              Thank you.
+            </h1>
+
+            <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-stone">
+              Your payment was successful and your order has been placed.
+              {placedOrderId && (
+                <>
+                  <br />
+                  <span className="mt-2 inline-block font-mono text-xs text-stone-dark">
+                    ORDER — {placedOrderId}
+                  </span>
+                </>
+              )}
+            </p>
+
+            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Link
+                href="/shop"
+                className="border border-line-strong px-6 py-4 text-xs font-medium tracking-[0.15em] text-bone transition-colors hover:border-bone hover:bg-bone hover:text-void"
+              >
+                CONTINUE SHOPPING
+              </Link>
+
+              <Link
+                href={
+                  placedOrderId
+                    ? `/orders/${encodeURIComponent(placedOrderId)}`
+                    : "/orders"
+                }
+                className="bg-bone px-6 py-4 text-xs font-medium tracking-[0.15em] text-void transition-colors hover:bg-mango"
+              >
+                YOUR ORDER
+              </Link>
+            </div>
+          </div>
         </main>
       </>
     );
@@ -677,12 +701,23 @@ export default function PaymentPage() {
 
                       </div>
 
-                      <p className="font-mono text-xs text-bone-dim">
-                        {formatPrice(
-                          line.product.price *
-                            line.quantity
+                      <div className="text-right">
+                        {hasProductDiscount(line.product) && (
+                          <p className="font-mono text-[10px] text-stone-dark line-through">
+                            {formatPrice(line.product.price * line.quantity)}
+                          </p>
                         )}
-                      </p>
+                        <p className="font-mono text-xs text-bone-dim">
+                          {formatPrice(
+                            getProductSalePrice(line.product) * line.quantity
+                          )}
+                        </p>
+                        {hasProductDiscount(line.product) && (
+                          <p className="mt-1 text-[10px] tracking-wider text-mango">
+                            {Number(line.product.discountPercent) || 0}% OFF
+                          </p>
+                        )}
+                      </div>
 
                     </div>
 
