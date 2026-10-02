@@ -8,6 +8,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 import ProductQuickAddModal from "./ProductQuickAddModal";
 
@@ -155,10 +156,10 @@ export default function TrendingSection({
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             {/* ORIGINAL PRICE */}
 
-                            {hasDiscount && (
+                            {hasDiscount && getProductStrikethroughPrice(product) && (
                               <span className="font-mono text-[10px] text-stone-dark line-through">
                                 {formatPrice(
-                                  product.price
+                                  getProductStrikethroughPrice(product) || 0
                                 )}
                               </span>
                             )}

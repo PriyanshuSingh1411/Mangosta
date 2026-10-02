@@ -7,6 +7,11 @@ import type {
   ProductCategory,
   ProductColor,
 } from "@/app/data/productTypes";
+import {
+  formatPrice,
+  getProductSalePrice,
+  getProductStrikethroughPrice,
+} from "@/app/data/productTypes";
 
 const CATEGORIES: ProductCategory[] = [
   "t-shirts",
@@ -151,6 +156,13 @@ export default function ProductForm({
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stock value this form was loaded with. Sent on save so the server only
+  // writes stock when the admin actually changed it, and never overwrites
+  // orders placed while this form was open.
+  const inventoryOnLoadRef = useRef<number | undefined>(
+    product?.inventory
+  );
 
   const update = <K extends keyof FormState>(
     key: K,
@@ -398,6 +410,10 @@ export default function ProductForm({
 
       inventory:
         parseInt(form.inventory, 10) || 0,
+
+      ...(isEditing
+        ? { inventoryOnLoad: inventoryOnLoadRef.current }
+        : {}),
     };
 
     try {
@@ -418,6 +434,15 @@ export default function ProductForm({
           .json()
           .catch(() => ({}));
 
+        // Orders changed the stock while this form was open: remember the
+        // current value so the next save compares against it.
+        if (
+          response.status === 409 &&
+          typeof data.currentInventory === "number"
+        ) {
+          inventoryOnLoadRef.current = data.currentInventory;
+        }
+
         throw new Error(
           data.error ||
             "Failed to save product."
@@ -436,6 +461,19 @@ export default function ProductForm({
       setIsSaving(false);
     }
   };
+
+  // Preview uses the same price helpers as the storefront, so the admin
+  // sees exactly what customers will see (incl. compare-at price).
+  const previewPricing = {
+    price: parseFloat(form.price) || 0,
+    compareAtPrice: parseFloat(form.compareAtPrice) || undefined,
+    discountPercent: Math.min(
+      100,
+      Math.max(0, parseFloat(form.discountPercent) || 0)
+    ),
+  };
+  const previewWasPrice = getProductStrikethroughPrice(previewPricing);
+  const previewSalePrice = getProductSalePrice(previewPricing);
 
   return (
     <form
@@ -699,28 +737,13 @@ export default function ProductForm({
           <div className="border border-mango/30 bg-mango/5 p-4">
             <p className="label-technical text-mango">SALE PRICE PREVIEW</p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <span className="font-mono text-sm text-stone-dark line-through">
-                {new Intl.NumberFormat("en-IN", {
-                  style: "currency",
-                  currency: "INR",
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }).format(Number(form.price) || 0)}
-              </span>
+              {previewWasPrice !== null && (
+                <span className="font-mono text-sm text-stone-dark line-through">
+                  {formatPrice(previewWasPrice)}
+                </span>
+              )}
               <span className="font-mono text-lg text-bone">
-                {new Intl.NumberFormat("en-IN", {
-                  style: "currency",
-                  currency: "INR",
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }).format(
-                  Number(
-                    (
-                      (Number(form.price) || 0) *
-                      (1 - Math.min(100, Math.max(0, Number(form.discountPercent) || 0)) / 100)
-                    ).toFixed(2)
-                  )
-                )}
+                {formatPrice(previewSalePrice)}
               </span>
               <span className="text-xs font-medium tracking-wider text-mango">
                 {form.discountPercent}% OFF

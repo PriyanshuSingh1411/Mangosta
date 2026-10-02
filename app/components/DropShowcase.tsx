@@ -8,6 +8,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 import type { DropSettings } from "@/app/lib/dataStore";
 import ProductQuickAddModal from "./ProductQuickAddModal";
@@ -240,11 +241,13 @@ export default function DropShowcase({
                             <div className="flex flex-col">
                               <div className="flex flex-wrap items-center gap-2">
                                 {/* ORIGINAL PRICE */}
-                                <span className="font-mono text-[10px] text-stone-dark line-through">
-                                  {formatPrice(
-                                    product.price
-                                  )}
-                                </span>
+                                {getProductStrikethroughPrice(product) && (
+                                  <span className="font-mono text-[10px] text-stone-dark line-through">
+                                    {formatPrice(
+                                      getProductStrikethroughPrice(product) || 0
+                                    )}
+                                  </span>
+                                )}
 
                                 {/* DISCOUNTED PRICE */}
                                 <span className="font-mono text-xs text-bone-dim">
@@ -265,7 +268,7 @@ export default function DropShowcase({
                           ) : (
                             <span className="font-mono text-xs text-bone-dim">
                               {formatPrice(
-                                product.price
+                                salePrice
                               )}
                             </span>
                           )}

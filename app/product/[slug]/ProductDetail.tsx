@@ -7,6 +7,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 import { useCartStore } from "@/app/store/useCartStore";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -144,28 +145,25 @@ export default function ProductDetail({ product }: { product: Product }) {
           {product.name}
         </h1>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          {hasDiscount ? (
+          {getProductStrikethroughPrice(product) && getProductStrikethroughPrice(product) !== salePrice ? (
             <>
               <span className="font-mono text-sm text-stone-dark line-through">
-                {formatPrice(product.price)}
+                {formatPrice(getProductStrikethroughPrice(product) || 0)}
               </span>
-              <span className="font-mono text-xl text-bone-dim">
+              <span className={`font-mono text-xl ${hasDiscount ? "text-mango font-semibold" : "text-bone-dim"}`}>
                 {formatPrice(salePrice)}
               </span>
-              <span className="text-xs font-medium tracking-wider text-mango">
-                {discountPercent}% OFF
-              </span>
+              {hasDiscount && (
+                <span className="text-xs font-medium tracking-wider text-mango bg-mango/10 px-2 py-1 rounded">
+                  {discountPercent}% OFF
+                </span>
+              )}
             </>
           ) : (
             <>
               <span className="font-mono text-xl text-bone-dim">
-                {formatPrice(product.price)}
+                {formatPrice(salePrice)}
               </span>
-              {product.compareAtPrice && (
-                <span className="text-sm text-stone-dark line-through">
-                  {formatPrice(product.compareAtPrice)}
-                </span>
-              )}
             </>
           )}
         </div>

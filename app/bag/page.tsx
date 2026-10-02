@@ -11,6 +11,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 
 export default function BagPage() {
@@ -133,19 +134,19 @@ export default function BagPage() {
                             </div>
 
                             <div className="shrink-0 text-right">
-                              {hasProductDiscount(line.product) && (
+                              {getProductStrikethroughPrice(line.product) && (
                                 <p className="font-mono text-xs text-stone-dark line-through">
-                                  {formatPrice(line.product.price * line.quantity)}
+                                  {formatPrice((getProductStrikethroughPrice(line.product) || 0) * line.quantity)}
                                 </p>
                               )}
-                              <p className="font-mono text-sm text-bone">
+                              <p className={`font-mono text-sm ${hasProductDiscount(line.product) ? "text-mango font-semibold" : "text-bone"}`}>
                                 {formatPrice(
                                   getProductSalePrice(line.product) * line.quantity
                                 )}
                               </p>
                               {hasProductDiscount(line.product) && (
-                                <p className="mt-1 text-[10px] tracking-wider text-mango">
-                                  {Number(line.product.discountPercent) || 0}% OFF
+                                <p className="mt-1 text-[10px] tracking-wider text-mango bg-mango/10 px-2 py-0.5 rounded inline-block">
+                                  {Math.round(Number(line.product.discountPercent) || 0)}% OFF
                                 </p>
                               )}
                             </div>

@@ -2,14 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   calculateShipping,
-  consumeCoupon,
-  createOrder,
+  CouponUnavailableError,
   getCheckoutSettings,
   getProduct,
+  InsufficientInventoryError,
+  placeOrder,
   validateCoupon,
 } from "@/app/lib/dataStore";
 
-import type { OrderLine } from "@/app/lib/dataStore";
+import type {
+  NewOrderInput,
+  Order,
+  OrderLine,
+} from "@/app/lib/dataStore";
 import { getProductSalePrice } from "@/app/data/productTypes";
 
 interface CheckoutLineInput {
@@ -32,31 +37,19 @@ function isValidPaymentMethod(value: unknown): value is PaymentMethod {
 
 /* -------------------------------------------------------------------------- */
 /* GET /api/checkout                                                          */
-/* Used by checkout page to calculate shipping                                */
+/* Returns checkout/shipping settings only.                                   */
+/*                                                                            */
+/* The checkout page uses these settings to display a shipping estimate.     */
+/* Nothing sent by the browser (e.g. a ?subtotal= value) is read or trusted  */
+/* here. The amount actually charged is recalculated in POST from database   */
+/* prices.                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const settings = await getCheckoutSettings();
 
-    const subtotalParam = req.nextUrl.searchParams.get("subtotal");
-
-    const subtotal = Math.max(
-      0,
-      Number(subtotalParam) || 0
-    );
-
-    const shipping = calculateShipping(
-      subtotal,
-      settings
-    );
-
-    return NextResponse.json({
-      settings,
-      subtotal,
-      shipping,
-      total: subtotal + shipping,
-    });
+    return NextResponse.json({ settings });
   } catch (error) {
     console.error("Checkout GET error:", error);
 
@@ -171,19 +164,19 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const quantity = Math.max(
-        1,
-        Number(line.quantity) || 1
-      );
+      const quantity = Number(line.quantity);
 
-      if (product.inventory < quantity) {
+      if (!Number.isInteger(quantity) || quantity < 1) {
         return NextResponse.json(
           {
-            error: `${product.name} does not have enough inventory.`,
+            error: `Invalid quantity for "${product.name}".`,
           },
           { status: 400 }
         );
       }
+
+      // Stock is NOT checked here. placeOrder() below checks and reserves
+      // stock atomically, in the same transaction that saves the order.
 
       lines.push({
         lineId: String(line.lineId),
@@ -196,6 +189,10 @@ export async function POST(req: NextRequest) {
         quantity,
         // Never trust the price supplied by the browser.
         price: getProductSalePrice(product),
+        // Historical pricing snapshot for order records
+        originalPrice: product.price,
+        discountPercent: Number(product.discountPercent) || 0,
+        compareAtPrice: product.compareAtPrice,
       });
     }
 
@@ -291,10 +288,18 @@ export async function POST(req: NextRequest) {
         : "pending";
 
     /* ---------------------------------------------------------------------- */
-    /* Create order                                                           */
+    /* Reserve stock + use coupon + create order (one all-or-nothing step)    */
+    /*                                                                        */
+    /* placeOrder() runs in a MongoDB transaction:                            */
+    /*   - decrements stock for every product (conditional, atomic)           */
+    /*   - any product short → rollback, no order → HTTP 409 below            */
+    /*   - coupon: re-checked and one use recorded (conditional, atomic);     */
+    /*     limit reached / disabled / changed → rollback → HTTP 409 below     */
+    /*   - saves the order; if that fails → rollback, nothing changed → 500   */
+    /* Stock and coupon usage change exactly once, only when the order exists.*/
     /* ---------------------------------------------------------------------- */
 
-    const order = await createOrder({
+    const orderData: NewOrderInput = {
       customer: {
         email: String(email)
           .trim()
@@ -338,28 +343,37 @@ export async function POST(req: NextRequest) {
       paymentMethod,
 
       paymentStatus,
-    });
+    };
 
-    /* ---------------------------------------------------------------------- */
-    /* Consume coupon after successful order                                  */
-    /* ---------------------------------------------------------------------- */
+    let order: Order;
 
-    if (couponCode) {
-      try {
-        await consumeCoupon(
-          couponCode
+    try {
+      order = await placeOrder(orderData);
+    } catch (error) {
+      if (error instanceof InsufficientInventoryError) {
+        return NextResponse.json(
+          {
+            error: error.message,
+            unavailableProducts: error.products,
+          },
+          { status: 409 }
         );
-      } catch (couponError) {
-        console.error(
-          "Coupon consumption failed after order creation:",
-          couponError
-        );
-
-        /*
-         * The order has already been created,
-         * so we don't fail the customer's order.
-         */
       }
+
+      if (error instanceof CouponUnavailableError) {
+        return NextResponse.json(
+          {
+            error: error.message,
+            couponCode,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Any other failure: the transaction was rolled back, so no order
+      // exists, no stock was taken and no coupon use was recorded.
+      // Handled by the outer catch (500).
+      throw error;
     }
 
     /* ---------------------------------------------------------------------- */

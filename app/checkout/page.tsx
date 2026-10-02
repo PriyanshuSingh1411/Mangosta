@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -11,6 +11,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 import { useCursorHover } from "@/app/lib/useCursorHover";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -144,6 +145,19 @@ export default function CheckoutPage() {
 
   const currentSubtotal = subtotal();
 
+  // Calculate total product-level discounts (before coupon)
+  const productDiscount = useMemo(() => {
+    return lines.reduce((sum, line) => {
+      const basePrice = line.product.price || 0;
+      const discountPercent = Number(line.product.discountPercent) || 0;
+      if (discountPercent > 0) {
+        const lineDiscount = (basePrice * discountPercent / 100) * line.quantity;
+        return sum + lineDiscount;
+      }
+      return sum;
+    }, 0);
+  }, [lines]);
+
   /*
    * --------------------------------------------------------------------------
    * Prefill logged-in customer
@@ -177,10 +191,10 @@ export default function CheckoutPage() {
       try {
         setShippingLoading(true);
 
+        // Settings only — shipping shown here is an estimate; the server
+        // recalculates the real amount when the order is placed.
         const response = await fetch(
-          `/api/checkout?subtotal=${encodeURIComponent(
-            currentSubtotal
-          )}`,
+          "/api/checkout",
           {
             cache: "no-store",
           }
@@ -226,7 +240,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentSubtotal]);
+  }, []);
 
   /*
    * --------------------------------------------------------------------------
@@ -899,18 +913,27 @@ export default function CheckoutPage() {
 
                       <div className="text-right">
                         {hasProductDiscount(line.product) && (
-                          <p className="font-mono text-[10px] text-stone-dark line-through">
-                            {formatPrice(line.product.price * line.quantity)}
-                          </p>
+                          <>
+                            {getProductStrikethroughPrice(line.product) !== null && (
+                              <p className="font-mono text-[10px] text-stone-dark line-through">
+                                {formatPrice((getProductStrikethroughPrice(line.product) ?? 0) * line.quantity)}
+                              </p>
+                            )}
+                            <p className={`font-mono text-xs text-mango font-semibold`}>
+                              {formatPrice(
+                                getProductSalePrice(line.product) * line.quantity
+                              )}
+                            </p>
+                            <p className="mt-1 text-[10px] tracking-wider text-mango bg-mango/10 px-1 py-0.5 rounded inline-block">
+                              {Math.round(Number(line.product.discountPercent) || 0)}% OFF
+                            </p>
+                          </>
                         )}
-                        <p className="font-mono text-xs text-bone-dim">
-                          {formatPrice(
-                            getProductSalePrice(line.product) * line.quantity
-                          )}
-                        </p>
-                        {hasProductDiscount(line.product) && (
-                          <p className="mt-1 text-[10px] tracking-wider text-mango">
-                            {Number(line.product.discountPercent) || 0}% OFF
+                        {!hasProductDiscount(line.product) && (
+                          <p className="font-mono text-xs text-bone-dim">
+                            {formatPrice(
+                              getProductSalePrice(line.product) * line.quantity
+                            )}
                           </p>
                         )}
                       </div>
@@ -1094,9 +1117,30 @@ export default function CheckoutPage() {
                   </span>
                 </div>
 
+                {productDiscount > 0 && (
+                  <div className="flex justify-between text-mango border-b border-mango/20 pb-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold">Product Discounts</span>
+                      <span className="text-xs text-mango/70">
+                        {lines.filter(l => Number(l.product.discountPercent) > 0).length} item(s) with discount
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold">
+                      -{formatPrice(productDiscount)}
+                    </span>
+                  </div>
+                )}
+
                 {discount > 0 && (
                   <div className="flex justify-between text-mango">
-                    <span>Discount</span>
+                    <div className="flex flex-col gap-1">
+                      <span>Coupon Discount</span>
+                      {appliedCoupon && (
+                        <span className="text-[11px] text-mango/70">
+                          {appliedCoupon.code} ({appliedCoupon.discountType === "percentage" ? `${appliedCoupon.discountValue}%` : formatPrice(appliedCoupon.discountValue)})
+                        </span>
+                      )}
+                    </div>
 
                     <span>
                       -{formatPrice(discount)}

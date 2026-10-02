@@ -48,19 +48,43 @@ export const useCartStore = create<CartState>()(
       searchQuery: "",
 
       addToBag: (product, size, color, quantity = 1) => {
+        // Validate inventory before adding to cart
+        const requestedQuantity = Math.max(1, quantity);
+        const currentInventory = Math.max(0, product.inventory || 0);
+
+        // Check if there's enough inventory
+        if (requestedQuantity > currentInventory) {
+          console.warn(
+            `Cannot add ${product.name}: only ${currentInventory} in stock, requested ${requestedQuantity}`
+          );
+          return;
+        }
+
         const lineId = `${product.id}-${size}-${color}`;
         set((state) => {
           const existing = state.lines.find((l) => l.lineId === lineId);
+
           if (existing) {
+            const newQuantity = existing.quantity + requestedQuantity;
+
+            // Validate total quantity doesn't exceed inventory
+            if (newQuantity > currentInventory) {
+              console.warn(
+                `Cannot add ${product.name}: total quantity ${newQuantity} exceeds inventory ${currentInventory}`
+              );
+              return state;
+            }
+
             return {
               lines: state.lines.map((l) =>
-                l.lineId === lineId ? { ...l, quantity: l.quantity + quantity } : l
+                l.lineId === lineId ? { ...l, quantity: newQuantity } : l
               ),
               lastAddedLineId: lineId,
             };
           }
+
           return {
-            lines: [...state.lines, { lineId, product, size, color, quantity }],
+            lines: [...state.lines, { lineId, product, size, color, quantity: requestedQuantity }],
             lastAddedLineId: lineId,
           };
         });
@@ -70,12 +94,32 @@ export const useCartStore = create<CartState>()(
         set((state) => ({ lines: state.lines.filter((l) => l.lineId !== lineId) })),
 
       updateQuantity: (lineId, quantity) =>
-        set((state) => ({
-          lines:
-            quantity <= 0
-              ? state.lines.filter((l) => l.lineId !== lineId)
-              : state.lines.map((l) => (l.lineId === lineId ? { ...l, quantity } : l)),
-        })),
+        set((state) => {
+          if (quantity <= 0) {
+            return { lines: state.lines.filter((l) => l.lineId !== lineId) };
+          }
+
+          // Find the line to validate inventory
+          const lineToUpdate = state.lines.find((l) => l.lineId === lineId);
+          if (!lineToUpdate) {
+            return state;
+          }
+
+          // Validate inventory
+          const currentInventory = Math.max(0, lineToUpdate.product.inventory || 0);
+          if (quantity > currentInventory) {
+            console.warn(
+              `Cannot update ${lineToUpdate.product.name}: requested quantity ${quantity} exceeds inventory ${currentInventory}`
+            );
+            return state;
+          }
+
+          return {
+            lines: state.lines.map((l) =>
+              l.lineId === lineId ? { ...l, quantity } : l
+            ),
+          };
+        }),
 
       openBag: () => set({ isBagOpen: true, isSearchOpen: false, isMenuOpen: false }),
       closeBag: () => set({ isBagOpen: false }),

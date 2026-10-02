@@ -18,6 +18,8 @@ type Coupon = {
   expiresAt: string;
   usageLimit: number;
   usageCount: number;
+  /** Set when the admin clicks "Reset usage"; the server then sets usage to 0. */
+  resetUsage?: boolean;
 };
 
 const EMPTY_COUPON: Omit<Coupon, "id"> = {
@@ -344,6 +346,7 @@ export default function AdminCouponsPage() {
   function resetUsage(index: number) {
     updateCoupon(index, {
       usageCount: 0,
+      resetUsage: true,
     });
   }
 

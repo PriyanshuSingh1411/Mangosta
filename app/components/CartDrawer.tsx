@@ -9,6 +9,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 import ProductPlaceholderArt from "./ProductPlaceholderArt";
 import { useCursorHover } from "@/app/lib/useCursorHover";
@@ -139,8 +140,9 @@ export default function CartDrawer() {
                           line.product.discountPercent
                         ) || 0;
 
+                      const strikethroughPrice = getProductStrikethroughPrice(line.product);
                       const originalLinePrice =
-                        Number(line.product.price || 0) *
+                        (strikethroughPrice ?? 0) *
                         line.quantity;
 
                       const saleLinePrice =
@@ -254,7 +256,7 @@ export default function CartDrawer() {
 
                               {/* PRICE */}
                               <div className="flex flex-col items-end">
-                                {hasDiscount && (
+                                {strikethroughPrice !== null && (
                                   <span className="font-mono text-[11px] text-stone-dark line-through">
                                     {formatPrice(
                                       originalLinePrice

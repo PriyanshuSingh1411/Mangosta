@@ -10,6 +10,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 import { useCartStore } from "@/app/store/useCartStore";
 
@@ -164,11 +165,13 @@ export default function ProductQuickAddModal({
               {hasDiscount ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {/* ORIGINAL PRICE */}
-                  <span className="font-mono text-xs text-stone-dark line-through">
-                    {formatPrice(
-                      product.price
-                    )}
-                  </span>
+                  {getProductStrikethroughPrice(product) && (
+                    <span className="font-mono text-xs text-stone-dark line-through">
+                      {formatPrice(
+                        getProductStrikethroughPrice(product) || 0
+                      )}
+                    </span>
+                  )}
 
                   {/* SALE PRICE */}
                   <span className="font-mono text-sm text-bone-dim">
@@ -185,7 +188,7 @@ export default function ProductQuickAddModal({
               ) : (
                 <p className="mt-2 font-mono text-sm text-bone-dim">
                   {formatPrice(
-                    product.price
+                    salePrice
                   )}
                 </p>
               )}

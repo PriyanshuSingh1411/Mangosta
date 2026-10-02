@@ -8,6 +8,7 @@ import {
   formatPrice,
   getProductSalePrice,
   hasProductDiscount,
+  getProductStrikethroughPrice,
 } from "@/app/data/productTypes";
 import { useCartStore } from "@/app/store/useCartStore";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -37,8 +38,9 @@ export default function ProductCard({
 
   const primaryImage = product.images[0];
   const salePrice = getProductSalePrice(product);
+  const strikethroughPrice = getProductStrikethroughPrice(product);
   const hasDiscount = hasProductDiscount(product);
-  const discountPercent = Number(product.discountPercent) || 0;
+  const discountPercent = Math.round(Number(product.discountPercent) || 0);
 
   const openPicker = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -201,17 +203,17 @@ export default function ProductCard({
           <div className="flex shrink-0 items-start gap-3">
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-2">
-                {hasDiscount && (
+                {strikethroughPrice && strikethroughPrice > salePrice && (
                   <span className="font-mono text-xs text-stone-dark line-through">
-                    {formatPrice(product.price)}
+                    {formatPrice(strikethroughPrice)}
                   </span>
                 )}
-                <span className="font-mono text-sm text-bone-dim">
+                <span className={`font-mono text-sm ${hasDiscount ? "text-mango font-semibold" : "text-bone-dim"}`}>
                   {formatPrice(salePrice)}
                 </span>
               </div>
               {hasDiscount && (
-                <span className="mt-1 text-[10px] font-medium tracking-wider text-mango">
+                <span className="mt-1 text-[10px] font-medium tracking-wider text-mango bg-mango/10 px-2 py-1 rounded">
                   {discountPercent}% OFF
                 </span>
               )}
@@ -286,17 +288,17 @@ export default function ProductCard({
                   {product.name}
                 </h2>
 
-                <div className="mt-2 flex items-center gap-2">
-                  {hasDiscount && (
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  {strikethroughPrice && strikethroughPrice > salePrice && (
                     <span className="font-mono text-xs text-stone-dark line-through">
-                      {formatPrice(product.price)}
+                      {formatPrice(strikethroughPrice)}
                     </span>
                   )}
-                  <span className="font-mono text-sm text-bone-dim">
+                  <span className={`font-mono text-sm ${hasDiscount ? "text-mango font-semibold" : "text-bone-dim"}`}>
                     {formatPrice(salePrice)}
                   </span>
                   {hasDiscount && (
-                    <span className="text-[10px] tracking-wider text-mango">
+                    <span className="text-[10px] tracking-wider text-mango bg-mango/10 px-2 py-0.5 rounded">
                       {discountPercent}% OFF
                     </span>
                   )}

@@ -320,7 +320,7 @@ function validateCouponData(
 
 export async function GET() {
   try {
-    if (!isAuthenticated()) {
+    if (!(await isAuthenticated())) {
       return NextResponse.json(
         {
           error: "Unauthorized",
@@ -368,7 +368,7 @@ export async function PUT(
   request: NextRequest
 ) {
   try {
-    if (!isAuthenticated()) {
+    if (!(await isAuthenticated())) {
       return NextResponse.json(
         {
           error: "Unauthorized",
@@ -447,12 +447,17 @@ export async function PUT(
       );
 
     /*
-     * Preserve existing usage count when the admin did not
-     * intentionally provide a new value.
+     * Usage count belongs to checkout, not to this form.
      *
-     * This prevents simply editing a coupon from resetting
-     * its usage count.
+     * The page sends back the usageCount it loaded, which may be
+     * out of date if orders used the coupon while the page was open.
+     * So for existing coupons we always keep the stored count, unless
+     * the admin clicked "Reset usage" (resetUsage: true). saveCoupons()
+     * additionally never writes usageCount except for new coupons and
+     * resets, so a use recorded during this request is not lost either.
      */
+    const resetUsageIds = new Set<string>();
+
     for (
       let index = 0;
       index < normalizedCoupons.length;
@@ -462,16 +467,18 @@ export async function PUT(
         normalizedCoupons[index];
 
       const rawCoupon =
-        body.coupons[index] as Partial<Coupon>;
+        body.coupons[index] as Partial<Coupon> & {
+          resetUsage?: unknown;
+        };
 
       const existing =
         existingById.get(coupon.id) ??
         existingByCode.get(coupon.code);
 
-      if (
-        existing &&
-        rawCoupon.usageCount === undefined
-      ) {
+      if (rawCoupon.resetUsage === true) {
+        coupon.usageCount = 0;
+        resetUsageIds.add(coupon.id);
+      } else if (existing) {
         coupon.usageCount =
           existing.usageCount;
       }
@@ -513,7 +520,8 @@ export async function PUT(
      * so the browser does not show a shifted date after reload.
      */
     await saveCoupons(
-      normalizedCoupons
+      normalizedCoupons,
+      resetUsageIds
     );
 
     /*

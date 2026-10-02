@@ -18,21 +18,12 @@ import Image from "next/image";
 
 import { useCartStore } from "@/app/store/useCartStore";
 import { useProducts } from "@/app/lib/useProducts";
-import { formatPrice } from "@/app/data/productTypes";
+import { formatPrice, getProductSalePrice, hasProductDiscount, getProductStrikethroughPrice } from "@/app/data/productTypes";
+import type { Product } from "@/app/data/productTypes";
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-interface Product {
-  id: string;
-  slug: string;
-  name: string;
-  category: string;
-  description?: string;
-  price: number;
-  images?: string[];
-}
 
 interface SearchResult {
   suggestions: string[];
@@ -869,11 +860,21 @@ export default function SearchOverlay() {
 
                                   {/* PRICE */}
 
-                                  <p className="mt-1 font-mono text-[11px] text-bone-dim">
-                                    {formatPrice(
-                                      product.price
+                                  <div className="mt-1">
+                                    {hasProductDiscount(product) && getProductStrikethroughPrice(product) && (
+                                      <p className="font-mono text-[10px] text-stone-dark line-through">
+                                        {formatPrice(getProductStrikethroughPrice(product) || 0)}
+                                      </p>
                                     )}
-                                  </p>
+                                    <p className={`font-mono text-[11px] ${hasProductDiscount(product) ? "text-mango font-semibold" : "text-bone-dim"}`}>
+                                      {formatPrice(getProductSalePrice(product))}
+                                    </p>
+                                    {hasProductDiscount(product) && (
+                                      <p className="text-[9px] text-mango font-semibold mt-0.5">
+                                        {Math.round(Number(product.discountPercent) || 0)}% OFF
+                                      </p>
+                                    )}
+                                  </div>
                                 </Link>
                               </motion.div>
                             ))}

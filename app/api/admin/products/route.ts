@@ -7,20 +7,7 @@ import {
   slugify,
 } from "@/app/lib/dataStore";
 import type { Product } from "@/app/data/productTypes";
-
-function normalizeDiscount(value: unknown): number | undefined {
-  if (value === undefined || value === null || value === "") {
-    return undefined;
-  }
-
-  const discount = Number(value);
-
-  if (!Number.isFinite(discount)) {
-    return undefined;
-  }
-
-  return Number(Math.min(100, Math.max(0, discount)).toFixed(2));
-}
+import { validateProductPricing, validateInventoryValue } from "@/app/lib/priceValidation";
 
 export async function GET() {
   if (!(await isAuthenticated())) {
@@ -49,15 +36,35 @@ export async function POST(req: NextRequest) {
     slug = `${slugBase}-${n++}`;
   }
 
-  const discountPercent = normalizeDiscount(body.discountPercent);
+  // Parse and validate pricing fields
+  const price = Number(body.price);
+  if (!Number.isFinite(price) || price < 0) {
+    return NextResponse.json({ error: "Price must be a valid positive number." }, { status: 400 });
+  }
+
+  const discountPercent = body.discountPercent ? Number(body.discountPercent) : undefined;
+  if (discountPercent !== undefined && (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100)) {
+    return NextResponse.json({ error: "Discount percent must be between 0 and 100." }, { status: 400 });
+  }
+
+  const compareAtPrice = body.compareAtPrice ? Number(body.compareAtPrice) : undefined;
+  if (compareAtPrice !== undefined && (!Number.isFinite(compareAtPrice) || compareAtPrice < 0)) {
+    return NextResponse.json({ error: "compareAtPrice must be a valid positive number." }, { status: 400 });
+  }
+
+  const inventory = Number(body.inventory || 0);
+  const inventoryValidation = validateInventoryValue(inventory);
+  if (!inventoryValidation.valid) {
+    return NextResponse.json({ error: `Inventory: ${inventoryValidation.error}` }, { status: 400 });
+  }
 
   const product: Product = {
     id: generateProductId(existing),
     slug,
     name: body.name.trim(),
     category: body.category || "t-shirts",
-    price: Number(body.price) || 0,
-    compareAtPrice: body.compareAtPrice ? Number(body.compareAtPrice) : undefined,
+    price,
+    compareAtPrice,
     discountPercent,
     currency: "INR",
     description: body.description || "",
@@ -67,8 +74,14 @@ export async function POST(req: NextRequest) {
     images: Array.isArray(body.images) ? body.images.filter(Boolean) : [],
     dropLabel: body.dropLabel || undefined,
     isNew: Boolean(body.isNew),
-    inventory: Number.isFinite(Number(body.inventory)) ? Number(body.inventory) : 0,
+    inventory,
   };
+
+  // Validate complete product pricing
+  const pricingValidation = validateProductPricing(product);
+  if (!pricingValidation.valid) {
+    return NextResponse.json({ error: `Pricing validation failed: ${pricingValidation.errors.join("; ")}` }, { status: 400 });
+  }
 
   const products = await upsertProduct(product);
   return NextResponse.json({ product, products }, { status: 201 });

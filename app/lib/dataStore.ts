@@ -1,6 +1,8 @@
+import { randomBytes } from "crypto";
 import { readFile } from "fs/promises";
 import path from "path";
 import clientPromise from "@/app/lib/mongodb";
+import type { ClientSession } from "mongodb";
 import type { Product } from "@/app/data/productTypes";
 
 export { slugify } from "@/app/data/productTypes";
@@ -113,7 +115,11 @@ export interface OrderLine {
   size: string;
   color: string;
   quantity: number;
-  price: number;
+  price: number; // Price paid (after discount)
+  // Historical pricing snapshot at time of order
+  originalPrice?: number; // Base price before discount
+  discountPercent?: number; // Discount % applied
+  compareAtPrice?: number; // Compare-at price if available
 }
 
 export interface Order {
@@ -366,18 +372,6 @@ export async function getProducts(): Promise<Product[]> {
     .toArray();
 }
 
-export async function saveProducts(
-  products: Product[]
-): Promise<void> {
-  const collection = await getProductsCollection();
-
-  await collection.deleteMany({});
-
-  if (products.length > 0) {
-    await collection.insertMany(products);
-  }
-}
-
 export async function getProduct(
   id: string
 ): Promise<Product | undefined> {
@@ -406,6 +400,244 @@ export async function upsertProduct(
     .find({}, { projection: { _id: 0 } })
     .sort({ id: 1 })
     .toArray();
+}
+
+/** Product fields the admin edit form can change (not id/currency/inventory). */
+export type ProductEditableFields = Omit<
+  Product,
+  "id" | "currency" | "inventory"
+>;
+
+export type UpdateProductResult =
+  | { status: "updated"; product: Product }
+  | { status: "not_found" }
+  | { status: "stock_changed"; currentInventory: number };
+
+/**
+ * Updates an existing product in place (used by the admin edit form).
+ *
+ * Stock is never overwritten by accident:
+ * - `stock` omitted → inventory is not written at all, so sales made while
+ *   the admin had the form open are kept.
+ * - `stock` given → the admin typed a new stock value. It is written only
+ *   if the product's inventory is still `stock.expected` (the value the
+ *   form loaded). If orders changed it meanwhile, nothing is saved and
+ *   "stock_changed" is returned with the current value.
+ *
+ * Fields set to undefined are removed ($unset) rather than stored as null.
+ */
+export async function updateProduct(
+  id: string,
+  fields: ProductEditableFields,
+  stock?: { expected: number; next: number }
+): Promise<UpdateProductResult> {
+  const collection = await getProductsCollection();
+
+  const $set: Record<string, unknown> = {};
+  const $unset: Record<string, ""> = {};
+
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) {
+      $unset[key] = "";
+    } else {
+      $set[key] = value;
+    }
+  }
+
+  if (stock) {
+    $set.inventory = stock.next;
+  }
+
+  const result = await collection.updateOne(
+    stock
+      ? { id, inventory: stock.expected }
+      : { id },
+    Object.keys($unset).length > 0
+      ? { $set, $unset }
+      : { $set }
+  );
+
+  const current = await getProduct(id);
+
+  if (!current) {
+    return { status: "not_found" };
+  }
+
+  if (result.matchedCount === 0) {
+    return {
+      status: "stock_changed",
+      currentInventory: current.inventory,
+    };
+  }
+
+  return { status: "updated", product: current };
+}
+
+// ============================================================
+// INVENTORY
+//
+// Single stock-decrease path for the whole app:
+//
+//   placeOrder()  →  atomicDecrementInventory()   (per product)
+//
+// The two helpers below are deliberately NOT exported, so nothing
+// else can decrease stock. createOrder() never reads or writes
+// inventory. The admin product APIs only *set* an absolute stock
+// value (a stock-take), they never decrement it — and on edit only
+// via compare-and-set in updateProduct(), so sales are never lost.
+// ============================================================
+
+type InventoryRequest = {
+  productId: string;
+  productName: string;
+  quantity: number;
+};
+
+export type UnavailableProduct = {
+  productId: string;
+  productName: string;
+};
+
+/**
+ * Thrown by placeOrder() when one or more products do not have enough
+ * stock. When this is thrown, NO order exists and inventory is unchanged.
+ * The checkout API maps it to HTTP 409 Conflict.
+ */
+export class InsufficientInventoryError extends Error {
+  readonly products: UnavailableProduct[];
+
+  constructor(products: UnavailableProduct[]) {
+    const names = products
+      .map((product) => product.productName)
+      .join(", ");
+
+    super(
+      `Some products are no longer available in the requested quantity: ${names}.`
+    );
+
+    this.name = "InsufficientInventoryError";
+    this.products = products;
+  }
+}
+
+/**
+ * Atomically decrements one product's inventory:
+ *
+ *   UPDATE products
+ *   SET    inventory = inventory - quantity
+ *   WHERE  id = productId AND inventory >= quantity
+ *
+ * Returns true when the document was updated (stock reserved).
+ * Returns false when the product is missing or has too little stock
+ * (nothing is changed in that case).
+ */
+async function atomicDecrementInventory(
+  productId: string,
+  quantity: number,
+  session?: ClientSession
+): Promise<boolean> {
+  const collection = await getProductsCollection();
+
+  const result = await collection.updateOne(
+    {
+      id: productId,
+      inventory: { $gte: quantity },
+    },
+    {
+      $inc: { inventory: -quantity },
+    },
+    { session }
+  );
+
+  return result.modifiedCount === 1;
+}
+
+/**
+ * Puts stock back. Only used by placeOrder()'s fallback path for
+ * MongoDB servers without transaction support (see placeOrder).
+ */
+async function restoreInventory(
+  items: InventoryRequest[]
+): Promise<void> {
+  const collection = await getProductsCollection();
+
+  for (const item of items) {
+    try {
+      await collection.updateOne(
+        { id: item.productId },
+        { $inc: { inventory: item.quantity } }
+      );
+    } catch (error) {
+      console.error(
+        `[INVENTORY] Could not restore ${item.quantity} unit(s) of product ${item.productId}. Correct this product's stock manually.`,
+        error
+      );
+    }
+  }
+}
+
+/**
+ * Combines cart lines into one stock request per product.
+ * (Two lines can be the same product in different sizes/colours,
+ * and stock is tracked per product.)
+ */
+function groupLinesByProduct(
+  lines: OrderLine[]
+): InventoryRequest[] {
+  const grouped = new Map<string, InventoryRequest>();
+
+  for (const line of lines) {
+    if (
+      !Number.isInteger(line.quantity) ||
+      line.quantity < 1
+    ) {
+      throw new Error(
+        `Invalid quantity for ${line.productName}.`
+      );
+    }
+
+    const existing = grouped.get(line.productId);
+
+    if (existing) {
+      existing.quantity += line.quantity;
+    } else {
+      grouped.set(line.productId, {
+        productId: line.productId,
+        productName: line.productName,
+        quantity: line.quantity,
+      });
+    }
+  }
+
+  return [...grouped.values()];
+}
+
+let transactionSupport: Promise<boolean> | null = null;
+let warnedNoTransactions = false;
+
+/**
+ * Multi-document transactions need a replica set or sharded cluster.
+ * MongoDB Atlas (any tier) is always a replica set. A plain local
+ * `mongod` is standalone and cannot run transactions.
+ */
+function supportsTransactions(): Promise<boolean> {
+  if (!transactionSupport) {
+    transactionSupport = (async () => {
+      const db = await getDb();
+      const hello = await db.command({ hello: 1 });
+
+      return (
+        Boolean(hello.setName) ||
+        hello.msg === "isdbgrid"
+      );
+    })().catch((error) => {
+      // Detect again on the next order instead of caching a failure.
+      transactionSupport = null;
+      throw error;
+    });
+  }
+
+  return transactionSupport;
 }
 
 export async function deleteProduct(
@@ -616,11 +848,44 @@ export async function saveOrders(
   }
 }
 
-export async function createOrder(
-  order: Omit<
-    Order,
-    "id" | "createdAt" | "status"
-  >
+export type NewOrderInput = Omit<
+  Order,
+  "id" | "createdAt" | "status"
+>;
+
+/**
+ * Order IDs look like MG-MG4X2K1A-7F3A9C:
+ *   MG- + time (base 36) + 6 random hex characters.
+ * The time part keeps IDs roughly sortable; the random part means two
+ * orders placed in the same millisecond still get different IDs
+ * (16.7 million combinations per millisecond). placeOrder() also retries
+ * with a fresh ID if a clash ever happens anyway.
+ */
+function generateOrderId(): string {
+  const time = Date.now().toString(36).toUpperCase();
+  const random = randomBytes(3).toString("hex").toUpperCase();
+
+  return `MG-${time}-${random}`;
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === 11000
+  );
+}
+
+/**
+ * Builds and saves an order document. That is ALL it does:
+ * it never reads, changes or saves product inventory.
+ *
+ * Not exported on purpose — orders must be created through
+ * placeOrder(), which reserves stock in the same operation.
+ */
+async function createOrder(
+  order: NewOrderInput,
+  session?: ClientSession
 ): Promise<Order> {
   const newOrder: Order = {
     ...order,
@@ -649,9 +914,7 @@ export async function createOrder(
         ? order.paymentStatus
         : "pending",
 
-    id: `MG-${Date.now()
-      .toString(36)
-      .toUpperCase()}`,
+    id: generateOrderId(),
 
     createdAt:
       new Date().toISOString(),
@@ -664,40 +927,182 @@ export async function createOrder(
   const collection =
     db.collection<any>("orders");
 
-  await collection.insertOne({
-    ...newOrder,
-    _id: newOrder.id,
-  });
+  await collection.insertOne(
+    {
+      ...newOrder,
+      _id: newOrder.id,
+    },
+    { session }
+  );
 
-  // ----------------------------------------------------------
-  // Decrement inventory
-  // ----------------------------------------------------------
+  return newOrder;
+}
 
-  const products = await getProducts();
+/**
+ * Places an order as ONE all-or-nothing operation:
+ *
+ *   BEGIN TRANSACTION
+ *     decrement stock for every product in the cart (atomic, conditional)
+ *     any product short?  → abort, throw InsufficientInventoryError
+ *     coupon? → re-check it and record one use (atomic, conditional)
+ *     coupon unusable?    → abort, throw CouponUnavailableError
+ *     save the order
+ *   COMMIT                 (any error before this → full ROLLBACK)
+ *
+ * Outcomes:
+ *   - success                → order saved, stock decreased exactly once,
+ *                              coupon usage +1 (if a coupon was used)
+ *   - not enough stock       → InsufficientInventoryError, nothing changed
+ *   - coupon can't be used   → CouponUnavailableError, nothing changed
+ *   - order insert fails     → error rethrown, nothing changed
+ *
+ * Production (MongoDB Atlas / any replica set) uses a real MongoDB
+ * transaction. A standalone local `mongod` cannot run transactions, so
+ * there the same steps run without one and any stock / coupon use already
+ * taken is put back before the error is rethrown (logged once as a warning).
+ *
+ * If the generated order ID clashes with an existing order (duplicate
+ * _id), that attempt has already been fully rolled back, so it is simply
+ * retried with a new ID (up to 3 attempts).
+ */
+export async function placeOrder(
+  order: NewOrderInput
+): Promise<Order> {
+  const MAX_ATTEMPTS = 3;
 
-  let changed = false;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await placeOrderOnce(order);
+    } catch (error) {
+      if (
+        isDuplicateKeyError(error) &&
+        attempt < MAX_ATTEMPTS
+      ) {
+        continue;
+      }
 
-  for (const line of newOrder.lines) {
-    const product = products.find(
-      (item) =>
-        item.id === line.productId
-    );
+      throw error;
+    }
+  }
+}
 
-    if (product) {
-      product.inventory = Math.max(
-        0,
-        product.inventory - line.quantity
-      );
+async function placeOrderOnce(
+  order: NewOrderInput
+): Promise<Order> {
+  const items = groupLinesByProduct(order.lines);
 
-      changed = true;
+  if (items.length === 0) {
+    throw new Error("Cannot place an order with no items.");
+  }
+
+  /* ---------------- Replica set / Atlas: real transaction ---------------- */
+
+  if (await supportsTransactions()) {
+    const client = await clientPromise;
+    const session = client.startSession();
+
+    try {
+      let created: Order | undefined;
+
+      // withTransaction() commits if the callback resolves, aborts (rolls
+      // back every write) if it throws, and re-runs the callback on
+      // transient errors such as a write conflict with a concurrent order.
+      await session.withTransaction(async () => {
+        created = undefined;
+        const unavailable: UnavailableProduct[] = [];
+
+        for (const item of items) {
+          const reserved = await atomicDecrementInventory(
+            item.productId,
+            item.quantity,
+            session
+          );
+
+          if (!reserved) {
+            unavailable.push({
+              productId: item.productId,
+              productName: item.productName,
+            });
+          }
+        }
+
+        if (unavailable.length > 0) {
+          throw new InsufficientInventoryError(unavailable);
+        }
+
+        if (order.couponCode) {
+          await redeemCoupon(
+            order.couponCode,
+            order.subtotal,
+            order.discount ?? 0,
+            session
+          );
+        }
+
+        created = await createOrder(order, session);
+      });
+
+      if (!created) {
+        throw new Error("Order was not created.");
+      }
+
+      return created;
+    } finally {
+      await session.endSession();
     }
   }
 
-  if (changed) {
-    await saveProducts(products);
+  /* ------------- Standalone mongod: compensating rollback ------------- */
+
+  if (!warnedNoTransactions) {
+    warnedNoTransactions = true;
+    console.warn(
+      "[INVENTORY] This MongoDB server does not support transactions (standalone mongod). Orders use compensating rollback instead. Use MongoDB Atlas or a replica set in production."
+    );
   }
 
-  return newOrder;
+  const taken: InventoryRequest[] = [];
+  let redeemedCouponId: string | undefined;
+
+  try {
+    const unavailable: UnavailableProduct[] = [];
+
+    for (const item of items) {
+      const reserved = await atomicDecrementInventory(
+        item.productId,
+        item.quantity
+      );
+
+      if (reserved) {
+        taken.push(item);
+      } else {
+        unavailable.push({
+          productId: item.productId,
+          productName: item.productName,
+        });
+      }
+    }
+
+    if (unavailable.length > 0) {
+      throw new InsufficientInventoryError(unavailable);
+    }
+
+    if (order.couponCode) {
+      redeemedCouponId = await redeemCoupon(
+        order.couponCode,
+        order.subtotal,
+        order.discount ?? 0
+      );
+    }
+
+    return await createOrder(order);
+  } catch (error) {
+    if (redeemedCouponId !== undefined) {
+      await releaseCoupon(redeemedCouponId);
+    }
+    await restoreInventory(taken);
+    throw error;
+  }
 }
 
 export async function updateOrderStatus(
@@ -1103,8 +1508,18 @@ export async function getCoupons(): Promise<Coupon[]> {
     );
 }
 
+/**
+ * Saves the admin coupon list.
+ *
+ * usageCount is owned by checkout (redeemCoupon), so saving coupon
+ * settings never overwrites it — otherwise uses recorded while the admin
+ * page was open would be lost and the coupon could exceed its limit.
+ * It is only written for a NEW coupon, or set to 0 for coupons whose id
+ * is in `resetUsageIds` (the admin clicked "Reset usage").
+ */
 export async function saveCoupons(
-  coupons: Coupon[]
+  coupons: Coupon[],
+  resetUsageIds: ReadonlySet<string> = new Set()
 ): Promise<void> {
   const db = await getDb();
   const collection = db.collection<any>(
@@ -1139,12 +1554,16 @@ export async function saveCoupons(
   }
 
   for (const coupon of normalized) {
-    await collection.replaceOne(
+    const { usageCount, ...settings } = coupon;
+
+    await collection.updateOne(
       { _id: coupon.id },
-      {
-        ...coupon,
-        _id: coupon.id,
-      },
+      resetUsageIds.has(coupon.id)
+        ? { $set: { ...settings, usageCount: 0 } }
+        : {
+            $set: settings,
+            $setOnInsert: { usageCount },
+          },
       { upsert: true }
     );
   }
@@ -1212,6 +1631,30 @@ export async function validateCoupon(
     );
   }
 
+  const discount = assertCouponApplies(
+    coupon,
+    subtotal,
+    now
+  );
+
+  return {
+    coupon,
+    discount,
+  };
+}
+
+/**
+ * Every coupon rule in one place. Returns the discount for this subtotal,
+ * or throws an Error whose message is shown to the customer.
+ * Used by validateCoupon() (checkout preview / pricing) and by
+ * redeemCoupon() (inside the order transaction), so both apply the
+ * exact same rules.
+ */
+function assertCouponApplies(
+  coupon: Coupon,
+  subtotal: number,
+  now: Date
+): number {
   if (!coupon.enabled) {
     throw new Error(
       "This coupon is currently disabled."
@@ -1288,81 +1731,135 @@ export async function validateCoupon(
     );
   }
 
-  return {
-    coupon,
-    discount,
-  };
+  return discount;
 }
 
-export async function consumeCoupon(
-  code: string
-): Promise<Coupon> {
+/**
+ * Thrown by placeOrder() when the order's coupon can no longer be used
+ * (limit reached by a simultaneous order, disabled, expired, or changed
+ * since the order was priced). When this is thrown, NO order exists, no
+ * stock was taken and the coupon's usage is unchanged.
+ * The checkout API maps it to HTTP 409 Conflict.
+ */
+export class CouponUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CouponUnavailableError";
+  }
+}
+
+/**
+ * Records one use of a coupon — the ONLY place coupon usage increases.
+ * Called by placeOrder() inside the order transaction.
+ *
+ * 1. Re-reads the coupon and re-applies every rule (enabled, dates,
+ *    usage limit, minimum order) as of now.
+ * 2. Checks the discount still equals the one the order was priced with.
+ * 3. Atomically increments usage with a conditional update:
+ *      WHERE _id = coupon AND usageCount < usageLimit   (if limited)
+ *      SET   usageCount = usageCount + 1
+ *
+ * Returns the coupon document _id (for releaseCoupon on the fallback path).
+ */
+async function redeemCoupon(
+  code: string,
+  subtotal: number,
+  expectedDiscount: number,
+  session?: ClientSession
+): Promise<string> {
   const normalizedCode =
     normalizeCouponCode(code);
 
   const db = await getDb();
-  const collection = db.collection<any>(
-    "coupons"
-  );
+  const collection =
+    db.collection<CouponDocument>("coupons");
 
-  const coupon = await collection.findOne({
-    _id: normalizedCode,
-  });
+  // Coupons saved by the admin use the coupon id as _id; very old data
+  // may use the code as _id — try that first, then look up by code.
+  const document =
+    (await collection.findOne(
+      { _id: normalizedCode },
+      { session }
+    )) ??
+    (await collection.findOne(
+      { code: normalizedCode },
+      { session }
+    ));
 
-  // Fallback for legacy data where _id was not the coupon code.
-  const matched =
-    coupon ??
-    (await collection.findOne({
-      code: normalizedCode,
-    }));
-
-  if (!matched) {
-    throw new Error(
-      "Coupon not found."
+  if (!document) {
+    throw new CouponUnavailableError(
+      "This coupon is no longer available."
     );
   }
 
-  const usageLimit = Math.max(
-    0,
-    Number(matched.usageLimit) || 0
+  const coupon = normalizeCoupon(
+    omitMongoId(document),
+    0
   );
 
-  // Atomic increment prevents usage from exceeding the configured limit.
-  const filter =
-    usageLimit > 0
-      ? {
-          _id: matched._id,
-          usageCount: {
-            $lt: usageLimit,
-          },
-        }
-      : {
-          _id: matched._id,
-        };
+  let discount: number;
 
-  const result =
-    await collection.findOneAndUpdate(
-      filter,
-      {
-        $inc: {
-          usageCount: 1,
-        },
-      },
-      {
-        returnDocument: "after",
-      }
+  try {
+    discount = assertCouponApplies(
+      coupon,
+      subtotal,
+      new Date()
     );
+  } catch (error) {
+    throw new CouponUnavailableError(
+      error instanceof Error
+        ? error.message
+        : "This coupon can no longer be used."
+    );
+  }
 
-  if (!result) {
-    throw new Error(
+  if (Math.abs(discount - expectedDiscount) > 0.005) {
+    throw new CouponUnavailableError(
+      "This coupon was changed while you were checking out. Please review your order and try again."
+    );
+  }
+
+  const result = await collection.updateOne(
+    coupon.usageLimit > 0
+      ? {
+          _id: document._id,
+          usageCount: { $lt: coupon.usageLimit },
+        }
+      : { _id: document._id },
+    { $inc: { usageCount: 1 } },
+    { session }
+  );
+
+  if (result.modifiedCount !== 1) {
+    throw new CouponUnavailableError(
       "This coupon has reached its usage limit."
     );
   }
 
-  return normalizeCoupon(
-    omitMongoId(result),
-    0
-  );
+  return document._id;
+}
+
+/**
+ * Gives back one coupon use. Only used by placeOrder()'s fallback path for
+ * MongoDB servers without transaction support.
+ */
+async function releaseCoupon(
+  couponDocumentId: string
+): Promise<void> {
+  try {
+    const db = await getDb();
+    await db
+      .collection<CouponDocument>("coupons")
+      .updateOne(
+        { _id: couponDocumentId, usageCount: { $gt: 0 } },
+        { $inc: { usageCount: -1 } }
+      );
+  } catch (error) {
+    console.error(
+      `[COUPON] Could not release one use of coupon ${couponDocumentId}. Correct its usage count manually.`,
+      error
+    );
+  }
 }
 
 // ============================================================

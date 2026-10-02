@@ -10,6 +10,7 @@ import { useCartStore } from "@/app/store/useCartStore";
 import {
   formatPrice,
   getProductSalePrice,
+  getProductStrikethroughPrice,
   hasProductDiscount,
 } from "@/app/data/productTypes";
 
@@ -702,9 +703,12 @@ export default function PaymentPage() {
                       </div>
 
                       <div className="text-right">
-                        {hasProductDiscount(line.product) && (
+                        {getProductStrikethroughPrice(line.product) !== null && (
                           <p className="font-mono text-[10px] text-stone-dark line-through">
-                            {formatPrice(line.product.price * line.quantity)}
+                            {formatPrice(
+                              (getProductStrikethroughPrice(line.product) ?? 0) *
+                                line.quantity
+                            )}
                           </p>
                         )}
                         <p className="font-mono text-xs text-bone-dim">
