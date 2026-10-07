@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "defaultShipping": 10,
+  "freeShippingEnabled": true,
+  "freeShippingThreshold": 10,
+  "rules": [
+    {
+      "id": "shipping-rule-1788515021327",
+      "enabled": true,
+      "minOrderValue": 200,
+      "shippingCost": 10
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+import { Skeleton } from "@/app/components/Skeleton";
+export default function Loading(){return <main className="min-h-screen bg-void px-5 pb-24 pt-32 sm:px-8 sm:pt-40"><div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_.8fr]"><Skeleton className="aspect-[3/4]"/><div><Skeleton className="h-4 w-24"/><Skeleton className="mt-5 h-16 w-4/5"/><Skeleton className="mt-5 h-6 w-32"/><Skeleton className="mt-8 h-24 w-full"/><Skeleton className="mt-8 h-12 w-full"/></div></div></main>}
