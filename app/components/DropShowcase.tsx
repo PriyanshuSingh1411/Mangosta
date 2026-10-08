@@ -26,7 +26,7 @@ import { useAuth } from "@/app/components/AuthProvider";
 import WishlistButton from "@/app/components/WishlistButton";
 import SizeGuideLink from "@/app/components/SizeGuide";
 import NotifyMe from "@/app/components/NotifyMe";
-import ProductQuickAddModal from "./ProductQuickAddModal";
+import ProductCard from "./ProductCard";
 
 type DropShowcaseProps = {
   settings: DropSettings;
@@ -47,9 +47,6 @@ export default function DropShowcase({
   settings,
   products,
 }: DropShowcaseProps) {
-  const [quickAddProduct, setQuickAddProduct] =
-    useState<Product | null>(null);
-
   if (!settings.enabled) return null;
 
   const cards = settings.products
@@ -73,8 +70,6 @@ export default function DropShowcase({
       return {
         item,
         product,
-        image:
-          product.images?.[0] || null,
         title:
           item.title.trim() ||
           product.name,
@@ -91,11 +86,16 @@ export default function DropShowcase({
       > => card !== null
     );
 
+  /*
+   * Same grid as every product listing on the site:
+   * phones  → 2 columns, edge to edge, 4px gap (like the reference)
+   * tablet+ → normal page padding, roomier gaps
+   */
   const getGridClasses = () => {
     const count = cards.length;
 
     let classes =
-      "grid grid-cols-2 gap-px bg-line-strong sm:grid-cols-3";
+      "-mx-5 grid grid-cols-2 gap-x-1 gap-y-8 sm:mx-0 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-12";
 
     if (count >= 4) {
       classes += " lg:grid-cols-4";
@@ -134,188 +134,19 @@ export default function DropShowcase({
         </div>
 
         {/* =========================================================
-            DROP PRODUCTS
+            DROP PRODUCTS — shared site-wide product card
         ========================================================= */}
         {cards.length > 0 ? (
           <div className={getGridClasses()}>
-            {cards.map(
-              (
-                {
-                  item,
-                  product,
-                  image,
-                  title,
-                  href,
-                },
-                index
-              ) => {
-                /*
-                 * Calculate the actual customer price.
-                 *
-                 * Example:
-                 * price = ₹68
-                 * discountPercent = 10
-                 *
-                 * salePrice = ₹61.20
-                 */
-                const salePrice =
-                  getProductSalePrice(
-                    product
-                  );
-
-                const discounted =
-                  hasProductDiscount(
-                    product
-                  );
-
-                const discountPercent =
-                  Number(
-                    product.discountPercent
-                  ) || 0;
-
-                return (
-                  <article
-                    key={`${item.productId}-${index}`}
-                    className="group relative bg-void"
-                  >
-                    {/* =================================================
-                        PRODUCT IMAGE
-                    ================================================= */}
-                    <Link
-                      href={href}
-                      className="block"
-                    >
-                      <div className="relative aspect-[4/5] overflow-hidden bg-charcoal">
-                        {image ? (
-                          <Image
-                            src={image}
-                            alt={title}
-                            fill
-                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                            className="object-contain object-center transition-transform duration-700 group-hover:scale-[1.02]"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center bg-gradient-to-br from-stone to-charcoal">
-                            <span className="font-display text-6xl text-bone/40">
-                              M
-                            </span>
-                          </div>
-                        )}
-
-                        {discounted && discountPercent > 0 && (
-                          <span className="absolute left-3 top-3 z-10 rounded-sm bg-mango px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-void shadow-sm">
-                            {discountPercent}% OFF
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-
-                    {/* =================================================
-                        PRODUCT INFORMATION
-                    ================================================= */}
-                    <div className="flex items-start justify-between gap-3 bg-void p-3 sm:p-4">
-                      <Link
-                        href={href}
-                        className="min-w-0 flex-1"
-                      >
-                        {/* PRODUCT TITLE */}
-                        <p
-                          className={`truncate text-xs font-medium uppercase tracking-[0.16em] text-bone sm:text-[10px] ${titleFontClass[item.titleStyle]}`}
-                        >
-                          {title}
-                        </p>
-
-                        <div className="mt-2 flex min-w-0 items-start gap-2">
-                          {/* COLORS */}
-                          <div
-                            className="flex gap-1.5 pt-1"
-                            aria-label={`Available colors: ${product.colors
-                              .map(
-                                (c) =>
-                                  c.name
-                              )
-                              .join(", ")}`}
-                          >
-                            {product.colors.map(
-                              (color) => (
-                                <span
-                                  key={
-                                    color.name
-                                  }
-                                  className="h-3 w-3 rounded-full border border-line-strong"
-                                  style={{
-                                    backgroundColor:
-                                      color.hex,
-                                  }}
-                                  title={
-                                    color.name
-                                  }
-                                />
-                              )
-                            )}
-                          </div>
-
-                          {/* =================================================
-                              PRICE
-                          ================================================= */}
-                          {discounted ? (
-                            <div className="min-w-0 flex flex-col">
-                              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                {/* ORIGINAL PRICE */}
-                                {getProductStrikethroughPrice(product) && (
-                                  <span className="font-mono text-[10px] text-stone-dark line-through">
-                                    {formatPrice(
-                                      getProductStrikethroughPrice(product) || 0
-                                    )}
-                                  </span>
-                                )}
-
-                                {/* DISCOUNTED PRICE */}
-                                <span className="font-mono text-xs font-medium text-bone-dim">
-                                  {formatPrice(
-                                    salePrice
-                                  )}
-                                </span>
-                              </div>
-
-                              {/* DISCOUNT */}
-                              <span className="mt-1 inline-block w-fit rounded-sm bg-mango/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-[0.12em] text-mango">
-                                {
-                                  discountPercent
-                                }
-                                % OFF
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="font-mono text-xs text-bone-dim">
-                              {formatPrice(
-                                salePrice
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-
-                      {/* =================================================
-                          QUICK VIEW
-                      ================================================= */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setQuickAddProduct(
-                            product
-                          )
-                        }
-                        className="flex h-9 w-9 shrink-0 items-center justify-center border border-line-strong text-xl leading-none text-bone transition-colors hover:border-bone hover:bg-bone hover:text-void"
-                        aria-label={`Quick view ${product.name}`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </article>
-                );
-              }
-            )}
+            {cards.map(({ item, product, title, href }, index) => (
+              <ProductCard
+                key={`${item.productId}-${index}`}
+                product={product}
+                href={href}
+                title={title}
+                titleClassName={titleFontClass[item.titleStyle]}
+              />
+            ))}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-4 rounded border border-line-strong bg-void py-20 text-center">
@@ -325,16 +156,6 @@ export default function DropShowcase({
           </div>
         )}
       </div>
-
-      {/* =========================================================
-          QUICK VIEW MODAL
-      ========================================================= */}
-      <ProductQuickAddModal
-        product={quickAddProduct}
-        onClose={() =>
-          setQuickAddProduct(null)
-        }
-      />
     </section>
   );
 }
@@ -369,6 +190,22 @@ type RailGarment = {
 
 const RAIL_LIMIT = 20;
 const RAIL_HOVER_QUERY = "(hover: hover) and (pointer: fine)";
+
+/** Phones (same breakpoint as Admin → On the Rail → "Show on phones"). */
+const RAIL_PHONE_QUERY = "(max-width: 767px)";
+/** Garments on the rail at a time on phones. */
+const RAIL_PHONE_GROUP = 3;
+/**
+ * Space kept at each end of the rail for the ‹ › buttons on phones
+ * (the buttons also use the page's side margin, so this can stay small).
+ */
+const RAIL_ARROW_SPACE = 22;
+/** Phones: the 3 garments hang straight; the others are this much of the selected one. */
+const RAIL_PHONE_IDLE_RATIO = 0.84;
+/** Phones: gap between the 3 garments (px). */
+const RAIL_PHONE_GAP = 6;
+/** Horizontal finger movement (px) that counts as a swipe. */
+const RAIL_SWIPE_DISTANCE = 40;
 
 /** Width of the 3D-turned hanger compared with the facing one. */
 const RAIL_IDLE_ROTATION = 66;
@@ -455,6 +292,36 @@ function useCanHover() {
     () => window.matchMedia(RAIL_HOVER_QUERY).matches,
     () => true
   );
+}
+
+function subscribeToPhoneQuery(onChange: () => void) {
+  const query = window.matchMedia(RAIL_PHONE_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function useIsPhone() {
+  return useSyncExternalStore(
+    subscribeToPhoneQuery,
+    () => window.matchMedia(RAIL_PHONE_QUERY).matches,
+    () => false
+  );
+}
+
+/**
+ * First garment of each group of 3 on phones. The last group always
+ * shows 3 garments, so it can repeat some of the previous group
+ * (11 garments → 1–3, 4–6, 7–9, 9–11).
+ */
+function phoneGroupStarts(count: number): number[] {
+  if (count <= RAIL_PHONE_GROUP) return [0];
+
+  const starts: number[] = [];
+  for (let index = 0; index < count; index += RAIL_PHONE_GROUP) {
+    const start = Math.min(index, count - RAIL_PHONE_GROUP);
+    if (!starts.includes(start)) starts.push(start);
+  }
+  return starts;
 }
 
 /** Wooden hanger with a metal hook (drawn behind the garment). */
@@ -544,14 +411,21 @@ export function RailShowcase({
   );
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [trackWidth, setTrackWidth] = useState(1200);
+  // Phones: which group of 3 garments is on the rail, and the side the
+  // group slid in from (+1 next, −1 previous, 0 no slide).
+  const [group, setGroup] = useState({ index: 0, direction: 0 });
 
   const canHover = useCanHover();
+  const isPhone = useIsPhone();
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const lastPointerType = useRef<string>("");
   const activeRef = useRef(activeIndex);
   const openRef = useRef<number | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const swiped = useRef(false);
 
   // ------------------------------------------------------------
   // Measure the available width (fires once on mount too).
@@ -575,27 +449,64 @@ export function RailShowcase({
   }, []);
 
   // ------------------------------------------------------------
-  // Sizes: one garment faces the front, the rest are turned.
+  // Phones: 3 garments at a time, ‹ › / swipe for the next 3.
   // ------------------------------------------------------------
-  const safeActive = Math.min(activeIndex, Math.max(0, count - 1));
+  const groupStarts = phoneGroupStarts(count);
+  const showArrows = isPhone && groupStarts.length > 1;
+  const safeGroup = Math.min(group.index, groupStarts.length - 1);
+  const groupStart = isPhone ? groupStarts[safeGroup] : 0;
+  const visibleCount = isPhone
+    ? Math.min(RAIL_PHONE_GROUP, count)
+    : count;
+
+  // ------------------------------------------------------------
+  // Sizes. Tablets / computers: one garment faces the front, the rest
+  // are turned. Phones: all 3 hang straight, facing front, side by
+  // side — the selected one a little bigger.
+  // ------------------------------------------------------------
+  const clampedActive = Math.min(activeIndex, Math.max(0, count - 1));
+  // On phones the facing garment is always one of the 3 on the rail
+  // (the middle one when a new group comes in).
+  const safeActive =
+    isPhone &&
+    (clampedActive < groupStart ||
+      clampedActive >= groupStart + visibleCount)
+      ? groupStart + Math.floor((visibleCount - 1) / 2)
+      : clampedActive;
+
+  // Phones: room for the ‹ › buttons at both ends of the rail.
+  const railSpace = showArrows
+    ? trackWidth - RAIL_ARROW_SPACE * 2
+    : trackWidth;
+  const gap = isPhone ? RAIL_PHONE_GAP : 0;
+  const others = Math.max(0, visibleCount - 1);
   const activeWidth = Math.round(
-    clampNumber(trackWidth * 0.24, 150, 280)
+    isPhone
+      ? clampNumber(
+          (railSpace - gap * others) / (1 + RAIL_PHONE_IDLE_RATIO * others),
+          80,
+          220
+        )
+      : clampNumber(trackWidth * 0.24, 150, 280)
   );
   // Turned garments look wider than their slot, so keep a little room
-  // at both ends of the rail for the first and last garment.
-  const edgePad = Math.round(activeWidth * 0.2);
-  const idleWidth =
-    count > 1
+  // at both ends of the rail for the first and last garment. Phones
+  // don't turn them, so no extra room is needed there.
+  const edgePad = isPhone ? 0 : Math.round(activeWidth * 0.2);
+  const idleWidth = isPhone
+    ? Math.floor(activeWidth * RAIL_PHONE_IDLE_RATIO)
+    : visibleCount > 1
       ? Math.floor(
           clampNumber(
-            (trackWidth - activeWidth - edgePad * 2) / (count - 1),
+            (railSpace - activeWidth - edgePad * 2) / (visibleCount - 1),
             36,
             84
           )
         )
       : 0;
-  const rowWidth = activeWidth + idleWidth * Math.max(0, count - 1);
-  const overflows = rowWidth + edgePad * 2 > trackWidth + 1;
+  const rowWidth = activeWidth + (idleWidth + gap) * others;
+  // Phones never scroll the rail — the 3 garments always fit.
+  const overflows = !isPhone && rowWidth + edgePad * 2 > trackWidth + 1;
   const hookHeight = settings.showHangers
     ? Math.round(activeWidth * 0.2)
     : 14;
@@ -674,18 +585,64 @@ export function RailShowcase({
       openRef.current = wrapped;
       setActiveIndex(wrapped);
       setOpenIndex(wrapped);
+
+      // Phones: keep the garment shown in the product view on the rail
+      // (so closing the view lands on the right group of 3).
+      const inGroup = (start: number) =>
+        wrapped >= start && wrapped < start + RAIL_PHONE_GROUP;
+      if (!inGroup(groupStarts[safeGroup] ?? 0)) {
+        const found = groupStarts.findIndex(inGroup);
+        if (found >= 0) setGroup({ index: found, direction: 0 });
+      }
     },
-    [count]
+    [count, groupStarts, safeGroup]
   );
+
+  /** Phones: show the next (+1) or previous (−1) group of 3. Loops. */
+  const goToGroup = (step: number) => {
+    const total = groupStarts.length;
+    if (total < 2) return;
+
+    const next = (safeGroup + step + total) % total;
+    const start = groupStarts[next];
+    const middle = start + Math.floor((visibleCount - 1) / 2);
+
+    setGroup({ index: next, direction: step });
+    setActiveIndex(middle);
+  };
+
+  // Slide the new group of 3 in from the side it came from.
+  useEffect(() => {
+    const direction = group.direction;
+    const list = listRef.current;
+    if (!direction || !list || typeof list.animate !== "function") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    list.animate(
+      [
+        { opacity: 0, transform: `translateX(${direction * 28}px)` },
+        { opacity: 1, transform: "translateX(0)" },
+      ],
+      { duration: 420, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+    );
+  }, [group]);
 
   const handleItemClick = (index: number) => {
     const pointer = lastPointerType.current;
     lastPointerType.current = "";
 
+    // A swipe that ended on a garment changes the group — it's not a tap.
+    if (swiped.current) {
+      swiped.current = false;
+      return;
+    }
+
     // Touch / pen: first tap turns the garment, second tap opens it.
     if (
       (pointer === "touch" || pointer === "pen") &&
-      index !== activeRef.current
+      index !== (isPhone ? safeActive : activeRef.current)
     ) {
       selectGarment(index, true);
       return;
@@ -699,7 +656,9 @@ export function RailShowcase({
   const active = garments[safeActive];
   const hint = canHover
     ? "HOVER TO SEE — CLICK TO EXPLORE"
-    : "TAP TO TURN — TAP AGAIN TO EXPLORE";
+    : isPhone
+      ? "TAP TO SELECT — TAP AGAIN TO EXPLORE"
+      : "TAP TO TURN — TAP AGAIN TO EXPLORE";
 
   return (
     <section
@@ -741,6 +700,39 @@ export function RailShowcase({
           className={`no-scrollbar relative -mx-5 px-5 sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0 ${
             overflows ? "overflow-x-auto" : "overflow-x-hidden"
           }`}
+          // Phones: swipe left = next 3, swipe right = previous 3.
+          style={showArrows ? { touchAction: "pan-y" } : undefined}
+          onTouchStart={
+            showArrows
+              ? (event) => {
+                  const touch = event.touches[0];
+                  touchStart.current = touch
+                    ? { x: touch.clientX, y: touch.clientY }
+                    : null;
+                  swiped.current = false;
+                }
+              : undefined
+          }
+          onTouchEnd={
+            showArrows
+              ? (event) => {
+                  const start = touchStart.current;
+                  touchStart.current = null;
+                  const touch = event.changedTouches[0];
+                  if (!start || !touch) return;
+
+                  const dx = touch.clientX - start.x;
+                  const dy = touch.clientY - start.y;
+                  if (
+                    Math.abs(dx) >= RAIL_SWIPE_DISTANCE &&
+                    Math.abs(dx) > Math.abs(dy) * 1.2
+                  ) {
+                    swiped.current = true;
+                    goToGroup(dx < 0 ? 1 : -1);
+                  }
+                }
+              : undefined
+          }
         >
           <div
             className="relative mx-auto"
@@ -767,19 +759,31 @@ export function RailShowcase({
             />
 
             <ul
+              ref={listRef}
               className="relative flex items-start"
               style={{
                 justifyContent: overflows ? "flex-start" : "center",
                 paddingInline: overflows ? edgePad : 0,
+                gap,
               }}
             >
               {garments.map((garment, index) => {
+                // Phones: only the current group of 3 hangs on the rail.
+                if (
+                  isPhone &&
+                  (index < groupStart || index >= groupStart + visibleCount)
+                ) {
+                  return null;
+                }
+
                 const isActive = index === safeActive;
-                const rotation = isActive
-                  ? 0
-                  : index < safeActive
-                    ? RAIL_IDLE_ROTATION
-                    : -RAIL_IDLE_ROTATION;
+                // Phones: every garment hangs straight, facing front.
+                const rotation =
+                  isActive || isPhone
+                    ? 0
+                    : index < safeActive
+                      ? RAIL_IDLE_ROTATION
+                      : -RAIL_IDLE_ROTATION;
 
                 return (
                   <li
@@ -824,19 +828,32 @@ export function RailShowcase({
                     >
                       <span
                         className="pointer-events-none absolute top-0 block"
-                        style={{
-                          left: "50%",
-                          width: activeWidth,
-                          height: hookHeight + garmentHeight,
-                          marginLeft: -activeWidth / 2,
-                          transformOrigin: "50% 0",
-                          transform: `perspective(1100px) rotateY(${rotation}deg) scale(${
-                            isActive ? 1 : 0.9
-                          })`,
-                          transition:
-                            "transform 750ms var(--ease-editorial), opacity 500ms ease",
-                          opacity: isActive ? 1 : 0.92,
-                        }}
+                        style={
+                          isPhone
+                            ? {
+                                // Phones: the garment fills its own slot
+                                // (the slot grows when it is selected).
+                                left: 0,
+                                width: "100%",
+                                height: hookHeight + garmentHeight,
+                                transformOrigin: "50% 0",
+                                transition: "opacity 500ms ease",
+                                opacity: isActive ? 1 : 0.8,
+                              }
+                            : {
+                                left: "50%",
+                                width: activeWidth,
+                                height: hookHeight + garmentHeight,
+                                marginLeft: -activeWidth / 2,
+                                transformOrigin: "50% 0",
+                                transform: `perspective(1100px) rotateY(${rotation}deg) scale(${
+                                  isActive ? 1 : 0.9
+                                })`,
+                                transition:
+                                  "transform 750ms var(--ease-editorial), opacity 500ms ease",
+                                opacity: isActive ? 1 : 0.92,
+                              }
+                        }
                       >
                         <span
                           className={`absolute inset-0 block ${
@@ -875,6 +892,40 @@ export function RailShowcase({
                 );
               })}
             </ul>
+
+            {/* Phones: ‹ › at both ends of the rail (next / previous 3) */}
+            {showArrows &&
+              ([-1, 1] as const).map((step) => (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => goToGroup(step)}
+                  aria-label={
+                    step < 0 ? "Previous 3 products" : "Next 3 products"
+                  }
+                  className={`absolute z-50 flex h-9 w-9 items-center justify-center rounded-full border border-line-strong bg-void/70 text-bone backdrop-blur-sm transition-colors active:bg-bone active:text-void ${
+                    // Sits partly in the page's side margin.
+                    step < 0 ? "-left-4" : "-right-4"
+                  }`}
+                  style={{
+                    top:
+                      6 + hookHeight + Math.round(garmentHeight / 2) - 18,
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d={step < 0 ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"} />
+                  </svg>
+                </button>
+              ))}
           </div>
         </div>
 

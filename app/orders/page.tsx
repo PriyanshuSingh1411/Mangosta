@@ -7,7 +7,12 @@ import Image from "next/image";
 import Navigation from "@/app/components/Navigation";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
 import { formatPrice } from "@/app/data/productTypes";
-import { ORDER_STATUS_STYLE } from "@/app/orders/orderStatus";
+import {
+  lineBadgeText,
+  lineReturnBadges,
+  orderStatusStyle,
+  type OrderReturnRequest,
+} from "@/app/orders/orderStatus";
 
 type OrderLine = {
   lineId: string;
@@ -55,6 +60,8 @@ export default function OrdersPage() {
   );
   // Products this customer has reviewed (for the "Review your items" label).
   const [reviewedIds, setReviewedIds] = useState<Set<string> | null>(null);
+  // Return / exchange requests (for the order + product status).
+  const [returnRequests, setReturnRequests] = useState<OrderReturnRequest[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,12 +93,21 @@ export default function OrdersPage() {
         }
 
         if (loaded.some((order) => order.status === "delivered")) {
-          const reviewed = await fetch("/api/reviews/mine", { cache: "no-store" })
-            .then((res) => (res.ok ? res.json() : null))
-            .catch(() => null);
+          const [reviewed, returns] = await Promise.all([
+            fetch("/api/reviews/mine", { cache: "no-store" })
+              .then((res) => (res.ok ? res.json() : null))
+              .catch(() => null),
+            fetch("/api/returns", { cache: "no-store" })
+              .then((res) => (res.ok ? res.json() : null))
+              .catch(() => null),
+          ]);
 
           if (!cancelled && Array.isArray(reviewed?.productIds)) {
             setReviewedIds(new Set(reviewed.productIds));
+          }
+
+          if (!cancelled && Array.isArray(returns?.requests)) {
+            setReturnRequests(returns.requests);
           }
         }
       } catch (err) {
@@ -124,11 +140,13 @@ export default function OrdersPage() {
     }).format(new Date(date));
   };
 
-  const statusLabel = (status: Order["status"]) =>
-    ORDER_STATUS_STYLE[status]?.label ?? "PROCESSING";
+  // DELIVERED, or the return / exchange step when the whole order was
+  // returned or exchanged (e.g. REFUND COMPLETED).
+  const statusLabel = (order: Order) =>
+    orderStatusStyle(order, returnRequests).label;
 
-  const statusClass = (status: Order["status"]) =>
-    ORDER_STATUS_STYLE[status]?.className ?? "text-blue-400";
+  const statusClass = (order: Order) =>
+    orderStatusStyle(order, returnRequests).className;
 
   const needsReview = (order: Order) =>
     order.status === "delivered" &&
@@ -264,17 +282,19 @@ export default function OrdersPage() {
                           </p>
                         </div>
 
-                        <div>
+                        {/* Full row on phones so long steps
+                            ("REFUND COMPLETED") stay on one line */}
+                        <div className="col-span-2 sm:col-span-1">
                           <p className="label-technical text-stone">
                             STATUS
                           </p>
 
                           <p
                             className={`mt-1 text-xs font-medium tracking-[0.12em] ${statusClass(
-                              order.status
+                              order
                             )}`}
                           >
-                            {statusLabel(order.status)}
+                            {statusLabel(order)}
                           </p>
                         </div>
                       </div>
@@ -353,6 +373,16 @@ export default function OrdersPage() {
                                     QTY: {line.quantity}
                                   </span>
                                 </div>
+
+                                {/* Return / exchange step for this product only */}
+                                {lineReturnBadges(order, line, returnRequests).map((badge) => (
+                                  <p
+                                    key={badge.key}
+                                    className={`mt-2 font-mono text-[10px] font-medium tracking-[0.12em] ${badge.className}`}
+                                  >
+                                    {lineBadgeText(badge)}
+                                  </p>
+                                ))}
                               </div>
 
                               <p className="shrink-0 font-mono text-sm text-bone">

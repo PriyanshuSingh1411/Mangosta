@@ -2,71 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import type { Product } from "@/app/data/productTypes";
-import {
-  getProductSalePrice,
-  getProductStrikethroughPrice,
-  hasProductDiscount,
-  formatPrice,
-} from "@/app/data/productTypes";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useWishlistStore } from "@/app/store/useWishlistStore";
+import ProductCard from "./ProductCard";
 
 const RECENT_KEY = "mangosta-recently-viewed";
 
-function PersonalizedProductCard({ product }: { product: Product }) {
-  const salePrice = getProductSalePrice(product);
-  const originalPrice = getProductStrikethroughPrice(product);
-  const hasDiscount = hasProductDiscount(product);
-  const discountPercent = Math.round(Number(product.discountPercent) || 0);
-
-  return (
-    <Link
-      href={`/product/${product.slug}`}
-      className="group block min-w-0"
-    >
-      <div className="relative aspect-[3/4] overflow-hidden bg-void">
-        {product.images[0] ? (
-          <Image
-            src={product.images[0]}
-            alt={product.name}
-            fill
-            sizes="(max-width: 639px) 50vw, 25vw"
-            className="object-contain transition-transform duration-500 group-hover:scale-[1.02]"
-          />
-        ) : null}
-
-        {hasDiscount && discountPercent > 0 && (
-          <span className="absolute left-3 top-3 z-10 rounded-sm bg-mango px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-void">
-            {discountPercent}% OFF
-          </span>
-        )}
-      </div>
-
-      <h3 className="mt-3 break-words text-sm font-medium text-bone">
-        {product.name}
-      </h3>
-
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-        {hasDiscount && originalPrice && originalPrice > salePrice && (
-          <span className="font-mono text-[10px] text-stone line-through">
-            {formatPrice(originalPrice)}
-          </span>
-        )}
-        <span className="font-mono text-xs font-medium text-bone-dim">
-          {formatPrice(salePrice)}
-        </span>
-      </div>
-
-      {hasDiscount && discountPercent > 0 && (
-        <span className="mt-1 inline-block rounded-sm bg-mango/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-mango">
-          SAVE {discountPercent}%
-        </span>
-      )}
-    </Link>
-  );
-}
+/*
+ * Same grid as every product listing on the site:
+ * phones  → 2 columns, edge to edge, 4px gap
+ * tablet+ → 4 columns with roomier gaps
+ */
+const GRID_CLASSES =
+  "-mx-5 grid grid-cols-2 gap-x-1 gap-y-8 sm:mx-0 sm:gap-x-4 sm:gap-y-12 md:grid-cols-4";
 
 export default function PersonalizedHome({ products }: { products: Product[] }) {
   const { user } = useAuth();
@@ -151,9 +100,9 @@ export default function PersonalizedHome({ products }: { products: Product[] }) 
               </Link>
             </div>
 
-            <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className={`mt-8 ${GRID_CLASSES}`}>
               {recent.slice(0, 4).map((product) => (
-                <PersonalizedProductCard
+                <ProductCard
                   key={product.id}
                   product={product}
                 />
@@ -168,9 +117,9 @@ export default function PersonalizedHome({ products }: { products: Product[] }) 
               BECAUSE YOU LIKE THESE
             </p>
 
-            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className={`mt-6 ${GRID_CLASSES}`}>
               {picks.map((product) => (
-                <PersonalizedProductCard
+                <ProductCard
                   key={product.id}
                   product={product}
                 />

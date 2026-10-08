@@ -25,6 +25,7 @@ import { getStoreConfig } from "@/app/lib/storeConfig";
 import { checkPincode } from "@/app/data/storeTypes";
 import { sendOrderPlacedEmails } from "@/app/lib/orderEmails";
 import { getCurrentUser } from "@/app/lib/auth/session";
+import { isValidEmail } from "@/app/lib/auth/otp";
 import {
   getEngagementSessionId,
   trackServerEngagement,
@@ -134,6 +135,17 @@ export async function POST(req: NextRequest) {
         {
           error:
             "All contact and shipping fields are required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (!isValidEmail(String(email).trim())) {
+      return NextResponse.json(
+        {
+          error: "Please enter a valid email address.",
         },
         {
           status: 400,

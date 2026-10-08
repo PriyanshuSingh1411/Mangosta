@@ -10,6 +10,20 @@ export function normalizeEmail(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
+/**
+ * Normal addresses only (e.g. name.surname+tag@domain.co.in).
+ * Quoted names, comments, <brackets>, spaces and anything longer than
+ * 254 characters are rejected before an address ever reaches the mailer.
+ * The length is checked first, so the pattern only ever sees short input.
+ */
+const EMAIL_PATTERN =
+  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+
+export function isValidEmail(value: unknown): boolean {
+  const email = String(value ?? "");
+  return email.length <= 254 && EMAIL_PATTERN.test(email);
+}
+
 export function normalizeMobile(value: unknown): string {
   const raw = String(value ?? "").trim();
   if (!raw) return "";

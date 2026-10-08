@@ -6,6 +6,7 @@ import {
   normalizeEmail,
   normalizeMobile,
   isValidMobile,
+  isValidEmail,
   OTP_MAX_ATTEMPTS,
   OTP_RESEND_COOLDOWN_MS,
   OTP_TTL_MS,
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     const lastName = String(body?.lastName ?? "").trim();
     const mobile = normalizeMobile(body?.mobile);
 
-    if (!email || !email.includes("@")) {
+    if (!isValidEmail(email)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
 

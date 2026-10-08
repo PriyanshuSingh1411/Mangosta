@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
 import { ReviewForm } from "@/app/product/[slug]/ProductReviews";
 
@@ -65,6 +65,9 @@ export default function OrderReviews({ order }: { order: ReviewableOrder }) {
   const [loaded, setLoaded] = useState(false);
   const [writing, setWriting] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  // The one-product auto-open happens on the first load only (not again
+  // after the review is posted or the form is cancelled).
+  const autoOpenChecked = useRef(false);
 
   const load = useCallback(() => {
     return Promise.all(
@@ -77,6 +80,16 @@ export default function OrderReviews({ order }: { order: ReviewableOrder }) {
     ).then((entries) => {
       setEligibility(Object.fromEntries(entries));
       setLoaded(true);
+
+      // "Review your items" on a ONE-product order → open "Write a review"
+      // straight away. With 2+ products the customer picks one.
+      if (!autoOpenChecked.current) {
+        autoOpenChecked.current = true;
+        const only = items.length === 1 ? entries[0] : undefined;
+        if (window.location.hash === "#review" && only?.[1]?.canReview) {
+          setWriting(only[0]);
+        }
+      }
     });
   }, [items]);
 

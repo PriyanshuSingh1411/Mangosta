@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/app/lib/adminAuth";
 import { importProductsFromRows } from "@/app/lib/productBulkImport";
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file/node";
 
 export const runtime = "nodejs";
 
 type SpreadsheetRow = Record<string, unknown>;
+
+/** One sheet of the uploaded workbook: its tab name and its rows of cells. */
+type WorkbookSheet = {
+  sheet: string;
+  data: unknown[][];
+};
 
 function normalizeSheetName(value: string): string {
   return value
@@ -15,35 +21,96 @@ function normalizeSheetName(value: string): string {
 }
 
 function findSheet(
-  workbook: XLSX.WorkBook,
+  sheets: WorkbookSheet[],
   names: string[]
-): XLSX.WorkSheet | undefined {
+): WorkbookSheet | undefined {
   const wanted = new Set(
     names.map(normalizeSheetName)
   );
 
-  const sheetName = workbook.SheetNames.find(
-    (name) =>
-      wanted.has(normalizeSheetName(name))
+  return sheets.find(
+    (item) =>
+      wanted.has(normalizeSheetName(item.sheet))
   );
-
-  return sheetName
-    ? workbook.Sheets[sheetName]
-    : undefined;
 }
 
-function sheetToRows(
-  sheet: XLSX.WorkSheet | undefined
-): SpreadsheetRow[] {
-  if (!sheet) return [];
-
-  return XLSX.utils.sheet_to_json<SpreadsheetRow>(
-    sheet,
-    {
-      defval: "",
-      raw: true,
-    }
+function isBlankCell(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
   );
+}
+
+/**
+ * Turns a sheet into one object per row, keyed by the header row —
+ * the same shape the importer has always received:
+ *
+ * - the first non-empty row is the header row
+ * - empty cells become "" (never missing)
+ * - completely empty rows are skipped
+ * - a blank header becomes "__EMPTY", "__EMPTY_1", …
+ * - a repeated header becomes "name_1", "name_2", …
+ */
+function sheetToRows(
+  sheet: WorkbookSheet | undefined
+): SpreadsheetRow[] {
+  const data = sheet?.data ?? [];
+
+  const headerIndex = data.findIndex((row) =>
+    row.some((cell) => !isBlankCell(cell))
+  );
+
+  if (headerIndex === -1) return [];
+
+  const width = data.reduce(
+    (max, row) => Math.max(max, row.length),
+    0
+  );
+
+  // Skip empty columns on the left, so column positions match the data.
+  let firstColumn = 0;
+
+  while (
+    firstColumn < width &&
+    data.every((row) => isBlankCell(row[firstColumn]))
+  ) {
+    firstColumn += 1;
+  }
+
+  const headerRow = data[headerIndex];
+  const seen = new Map<string, number>();
+  const keys: string[] = [];
+
+  for (let column = firstColumn; column < width; column += 1) {
+    const cell = headerRow[column];
+    const base = isBlankCell(cell)
+      ? "__EMPTY"
+      : String(cell).trim();
+
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    keys.push(count === 0 ? base : `${base}_${count}`);
+  }
+
+  const rows: SpreadsheetRow[] = [];
+
+  for (let index = headerIndex + 1; index < data.length; index += 1) {
+    const row = data[index];
+
+    if (row.every((cell) => isBlankCell(cell))) continue;
+
+    const record: SpreadsheetRow = {};
+
+    keys.forEach((key, offset) => {
+      const cell = row[firstColumn + offset];
+      record[key] = isBlankCell(cell) ? "" : cell;
+    });
+
+    rows.push(record);
+  }
+
+  return rows;
 }
 
 export async function POST(
@@ -67,7 +134,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Excel file is required. Please upload an .xlsx or .xls file.",
+            "Excel file is required. Please upload an .xlsx file.",
         },
         { status: 400 }
       );
@@ -76,14 +143,12 @@ export async function POST(
     const fileName =
       file.name.toLowerCase();
 
-    if (
-      !fileName.endsWith(".xlsx") &&
-      !fileName.endsWith(".xls")
-    ) {
+    if (!fileName.endsWith(".xlsx")) {
       return NextResponse.json(
         {
-          error:
-            "Only .xlsx and .xls files are supported.",
+          error: fileName.endsWith(".xls")
+            ? "Old .xls files are not supported. In Excel, use File → Save As → Excel Workbook (.xlsx) and upload that file."
+            : "Only .xlsx files are supported.",
         },
         { status: 400 }
       );
@@ -125,13 +190,11 @@ export async function POST(
         await file.arrayBuffer()
       );
 
-    let workbook: XLSX.WorkBook;
+    let workbook: WorkbookSheet[];
 
     try {
       workbook =
-        XLSX.read(buffer, {
-          type: "buffer",
-        });
+        (await readXlsxFile(buffer)) as WorkbookSheet[];
     } catch {
       return NextResponse.json(
         {
@@ -142,10 +205,7 @@ export async function POST(
       );
     }
 
-    if (
-      !workbook.SheetNames ||
-      workbook.SheetNames.length === 0
-    ) {
+    if (workbook.length === 0) {
       return NextResponse.json(
         {
           error:
@@ -182,7 +242,7 @@ export async function POST(
           error:
             'Missing "Products" sheet. Your workbook must contain a sheet named "Products".',
           availableSheets:
-            workbook.SheetNames,
+            workbook.map((item) => item.sheet),
         },
         { status: 400 }
       );

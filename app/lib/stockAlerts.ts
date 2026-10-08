@@ -1,4 +1,5 @@
 import "server-only";
+import { isValidEmail as isValidEmailAddress } from "@/app/lib/auth/otp";
 
 import { getStoreDb, getSiteUrl, shortId } from "@/app/lib/db";
 import { getProduct } from "@/app/lib/dataStore";
@@ -30,7 +31,7 @@ export interface StockAlert {
 }
 
 export function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+  return isValidEmailAddress(value);
 }
 
 async function alertsCollection() {

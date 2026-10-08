@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 
 import { getSettings } from "@/app/lib/dataStore";
 import { addSubscriber } from "@/app/lib/newsletterStore";
+import { isValidEmail } from "@/app/lib/auth/otp";
 
 function escapeHtml(value: string) {
   return value
@@ -305,13 +306,10 @@ export async function POST(req: NextRequest) {
     }
 
     /*
-     * Basic email validation.
+     * Email validation (shared with sign-up / checkout).
      */
 
-    const emailPattern =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailPattern.test(email)) {
+    if (!isValidEmail(email)) {
       return NextResponse.json(
         {
           error: "Please enter a valid email address.",

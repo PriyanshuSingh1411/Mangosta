@@ -1,16 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import type { Product } from "@/app/data/productTypes";
-import {
-  formatPrice,
-  getProductSalePrice,
-  hasProductDiscount,
-  getProductStrikethroughPrice,
-} from "@/app/data/productTypes";
-import ProductQuickAddModal from "./ProductQuickAddModal";
+import ProductCard from "./ProductCard";
 
 type TrendingSectionProps = {
   products: Product[];
@@ -19,9 +11,6 @@ type TrendingSectionProps = {
 export default function TrendingSection({
   products,
 }: TrendingSectionProps) {
-  const [quickAddProduct, setQuickAddProduct] =
-    useState<Product | null>(null);
-
   return (
     <section
       id="trending"
@@ -49,159 +38,16 @@ export default function TrendingSection({
         </div>
 
         {/* ============================================================
-            PRODUCTS
+            PRODUCTS — shared site-wide product card
+            phones  → 2 columns, edge to edge, 4px gap
+            tablet+ → normal page padding, roomier gaps
         ============================================================ */}
 
         {products.length > 0 ? (
-          <div className="grid grid-cols-2 gap-px bg-void sm:grid-cols-3 lg:grid-cols-4">
-            {products.map((product) => {
-              const image =
-                product.images?.[0] || "";
-
-              const salePrice =
-                getProductSalePrice(product);
-
-              const hasDiscount =
-                hasProductDiscount(product);
-
-              const discountPercent =
-                Number(product.discountPercent) || 0;
-
-              return (
-                <article
-                  key={product.id}
-                  className="group relative bg-void"
-                >
-                  {/* ================================================
-                      PRODUCT IMAGE
-                  ================================================ */}
-
-                  <Link
-                    href={`/product/${product.slug}`}
-                    className="block"
-                  >
-                    <div className="relative aspect-[4/5] overflow-hidden bg-void">
-                      {image ? (
-                        <Image
-                          src={image}
-                          alt={product.name}
-                          fill
-                          sizes="(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 25vw"
-                          className="object-contain object-center transition-transform duration-700 group-hover:scale-[1.02]"
-                        />
-                      ) : (
-
-                        <div className="flex h-full items-center justify-center bg-void">
-  <span className="font-display text-5xl text-stone/40">
-    M
-  </span>
-</div>
-                      )}
-
-                      {/* DISCOUNT BADGE */}
-                      {hasDiscount && (
-                        <div className="absolute left-3 top-3 z-10 bg-mango px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-void">
-                          {discountPercent}% OFF
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-
-                  {/* ================================================
-                      PRODUCT INFO
-                  ================================================ */}
-
-                  <div className="flex items-start justify-between gap-3 bg-void p-3 sm:p-4">
-                    <Link
-                      href={`/product/${product.slug}`}
-                      className="min-w-0 flex-1"
-                    >
-                      {/* PRODUCT NAME */}
-
-                      <p className="truncate text-xs font-medium uppercase tracking-[0.16em] text-bone sm:text-[10px]">
-                        {product.name}
-                      </p>
-
-                      {/* COLORS + PRICE */}
-
-                      <div className="mt-2 flex items-start gap-2">
-                        {/* COLORS */}
-
-                        <div
-                          className="flex shrink-0 gap-1.5 pt-0.5"
-                          aria-label={`Available colors: ${product.colors
-                            .map((c) => c.name)
-                            .join(", ")}`}
-                        >
-                          {product.colors.map(
-                            (color) => (
-                              <span
-                                key={color.name}
-                                className="h-3 w-3 rounded-full border border-line-strong"
-                                style={{
-                                  backgroundColor:
-                                    color.hex,
-                                }}
-                                title={color.name}
-                              />
-                            )
-                          )}
-                        </div>
-
-                        {/* PRICE */}
-
-                        <div className="flex min-w-0 flex-col">
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            {/* ORIGINAL PRICE */}
-
-                            {hasDiscount && getProductStrikethroughPrice(product) && (
-                              <span className="font-mono text-[10px] text-stone-dark line-through">
-                                {formatPrice(
-                                  getProductStrikethroughPrice(product) || 0
-                                )}
-                              </span>
-                            )}
-
-                            {/* ACTUAL SALE PRICE */}
-
-                            <span className="font-mono text-xs text-bone-dim">
-                              {formatPrice(
-                                salePrice
-                              )}
-                            </span>
-                          </div>
-
-                          {/* DISCOUNT TEXT */}
-
-                          {hasDiscount && (
-                            <span className="mt-1 text-[9px] font-medium uppercase tracking-[0.12em] text-mango">
-                              {discountPercent}% OFF
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
-
-                    {/* ================================================
-                        QUICK VIEW
-                    ================================================ */}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setQuickAddProduct(
-                          product
-                        )
-                      }
-                      className="flex h-9 w-9 shrink-0 items-center justify-center border border-line-strong text-xl leading-none text-bone transition-colors hover:border-bone hover:bg-bone hover:text-void"
-                      aria-label={`Quick view ${product.name}`}
-                    >
-                      +
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="-mx-5 grid grid-cols-2 gap-x-1 gap-y-8 sm:mx-0 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-12 lg:grid-cols-4">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         ) : (
           <div className="border border-line-strong py-20 text-center text-sm text-stone">
@@ -210,17 +56,6 @@ export default function TrendingSection({
           </div>
         )}
       </div>
-
-      {/* ============================================================
-          QUICK VIEW MODAL
-      ============================================================ */}
-
-      <ProductQuickAddModal
-        product={quickAddProduct}
-        onClose={() =>
-          setQuickAddProduct(null)
-        }
-      />
     </section>
   );
 }

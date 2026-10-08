@@ -130,7 +130,7 @@ return (
             <section className="mt-28">
               <p className="label-technical mb-2">COMPLETE THE LOOK</p>
               <p className="mb-8 text-sm text-stone">Pieces that go with the {product.name}.</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 lg:grid-cols-4">
+              <div className="-mx-5 grid grid-cols-2 gap-x-1 gap-y-8 sm:mx-0 sm:gap-x-6 sm:gap-y-12 lg:grid-cols-4">
                 {look.map((p) => (
   <ProductCard key={p.id} product={p} />
 ))}
@@ -141,7 +141,7 @@ return (
           {related.length > 0 && (
             <section className="mt-32">
               <p className="label-technical mb-8">YOU MAY ALSO LIKE</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 lg:grid-cols-4">
+              <div className="-mx-5 grid grid-cols-2 gap-x-1 gap-y-8 sm:mx-0 sm:gap-x-6 sm:gap-y-12 lg:grid-cols-4">
              {related.map((p) => (
   <ProductCard key={p.id} product={p} />
 ))}

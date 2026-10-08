@@ -380,7 +380,7 @@ export default function ShopGrid({
       ) : (
         <div
   ref={gridRef}
-  className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 sm:gap-y-14 lg:grid-cols-3 xl:grid-cols-4"
+  className="-mx-5 grid grid-cols-2 gap-x-1 gap-y-8 sm:mx-0 sm:gap-x-6 sm:gap-y-12 lg:grid-cols-3 xl:grid-cols-4"
 >
   {products.map((product) => (
     <ProductCard

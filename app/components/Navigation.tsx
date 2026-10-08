@@ -110,18 +110,18 @@ export default function Navigation() {
         }`}
       >
         <div
-          className={`mx-auto flex h-[76px] w-full max-w-[1600px] items-center justify-between px-5 transition-all duration-500 sm:px-8 lg:h-[50px] lg:px-10 ${
+          className={`mx-auto flex h-[76px] w-full max-w-[1600px] items-center justify-between gap-3 px-4 transition-all duration-500 min-[375px]:px-5 sm:px-8 lg:h-[50px] lg:gap-6 lg:px-8 xl:px-10 ${
             scrolled ? "border-b border-line" : "border-b border-bone/10"
           }`}
         >
           {/* BRAND */}
           <Link
             href="/"
-            className="group flex min-w-0 items-center gap-2.5 sm:gap-3.5"
+            className="group flex shrink-0 items-center gap-2 min-[375px]:gap-2.5 sm:gap-3.5"
             {...viewCursor}
             aria-label="Mangosta home"
           >
-            <div className="relative h-8 w-10 shrink-0 sm:h-9 sm:w-12">
+            <div className="relative h-7 w-9 shrink-0 min-[375px]:h-8 min-[375px]:w-10 sm:h-9 sm:w-12">
               <Image
                 src={darkMode ? "/images/mark-white.png" : "/images/mark-black.png"}
                 alt=""
@@ -131,21 +131,23 @@ export default function Navigation() {
               />
             </div>
 
-            <span className="font-display text-lg font-semibold tracking-[-0.02em] text-bone min-[360px]:text-xl sm:text-[1.65rem]">
+            {/* Scales with the screen on phones so it never runs into the
+                icons; hidden only on very narrow screens (< 320px). */}
+            <span className="whitespace-nowrap font-display text-[clamp(15px,4.4vw,20px)] font-semibold tracking-[-0.02em] text-bone max-[319px]:hidden sm:text-[1.65rem]">
               MANGOSTA
             </span>
           </Link>
 
           {/* DESKTOP NAV */}
           <nav
-            className="hidden items-center gap-8 lg:flex xl:gap-14"
+            className="hidden items-center gap-5 lg:flex xl:gap-10 2xl:gap-14"
             aria-label="Primary"
           >
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
-                className="group relative py-3 text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone"
+                className="group relative whitespace-nowrap py-3 text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone"
                 {...viewCursor}
               >
                 {link.label}
@@ -155,7 +157,9 @@ export default function Navigation() {
           </nav>
 
           {/* RIGHT ACTIONS */}
-          <div className="flex shrink-0 items-center gap-4 min-[360px]:gap-6 sm:gap-8 xl:gap-9">
+          {/* Phones + small tablets: icons only (Logout / Light live in the
+              menu). 768px+: text buttons. */}
+          <div className="flex shrink-0 items-center gap-1 min-[360px]:gap-1.5 md:gap-8 lg:gap-4 xl:gap-9">
             {/* ACCOUNT */}
             {!authLoading && (
               <button
@@ -167,7 +171,7 @@ export default function Navigation() {
                     openAuth("signin");
                   }
                 }}
-                className="hidden text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone sm:inline cursor-pointer"
+                className="hidden whitespace-nowrap text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone md:inline cursor-pointer"
                 {...viewCursor}
               >
                 {user ? "LOGOUT" : "SIGN IN"}
@@ -181,14 +185,14 @@ export default function Navigation() {
             <button
               type="button"
               onClick={openSearch}
-              className="group flex items-center gap-2 text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone cursor-pointer"
+              className="group flex h-8 w-8 items-center justify-center gap-2 text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone cursor-pointer md:h-auto md:w-auto"
               aria-label="Search"
               {...viewCursor}
             >
-              <span className="hidden sm:inline">SEARCH</span>
+              <span className="hidden md:inline">SEARCH</span>
 
               <svg
-                className="h-[17px] w-[17px] transition-transform duration-300 group-hover:scale-110 sm:hidden"
+                className="h-[17px] w-[17px] transition-transform duration-300 group-hover:scale-110 md:hidden"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -204,14 +208,14 @@ export default function Navigation() {
             <button
               type="button"
               onClick={openBag}
-              className="group relative flex items-center gap-2 text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone cursor-pointer"
+              className="group relative flex h-8 w-8 items-center justify-center gap-2 text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone cursor-pointer md:h-auto md:w-auto"
               aria-label={`Bag, ${count} item${count === 1 ? "" : "s"}`}
               {...shopCursor}
             >
-              <span className="hidden sm:inline">BAG</span>
+              <span className="hidden md:inline">BAG</span>
 
               <svg
-                className="h-[17px] w-[17px] transition-transform duration-300 group-hover:scale-110 sm:hidden"
+                className="h-[17px] w-[17px] transition-transform duration-300 group-hover:scale-110 md:hidden"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -223,7 +227,7 @@ export default function Navigation() {
               </svg>
 
               {count > 0 && (
-                <span className="absolute -right-4 -top-3 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-mango px-1 font-mono text-[10px] font-bold leading-none text-void">
+                <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-mango px-1 font-mono text-[9px] font-bold leading-none text-void md:-right-4 md:-top-3 md:h-[18px] md:min-w-[18px] md:text-[10px]">
                   {count}
                 </span>
               )}
@@ -233,7 +237,7 @@ export default function Navigation() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="hidden text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone sm:inline cursor-pointer"
+              className="hidden whitespace-nowrap text-[11px] font-medium tracking-[0.2em] text-bone-dim transition-colors duration-300 hover:text-bone md:inline cursor-pointer"
               aria-label={`Switch to ${darkMode ? "light" : "dark"} mode`}
               {...viewCursor}
             >
@@ -244,7 +248,7 @@ export default function Navigation() {
             <button
               type="button"
               onClick={openMenu}
-              className="-mr-2 flex h-11 w-11 flex-col items-end justify-center gap-[5px] pr-2 lg:hidden"
+              className="-mr-2 flex h-11 w-10 flex-col items-end justify-center gap-[5px] pr-2 lg:hidden"
               aria-label="Open menu"
               aria-expanded={isMenuOpen}
             >
@@ -419,10 +423,10 @@ export default function Navigation() {
                   <Link
                     href={link.href}
                     onClick={closeMenu}
-                    className="group flex items-center justify-between border-b border-line py-4 font-display text-[2.6rem] leading-none tracking-tight text-bone transition-colors duration-300 active:text-mango sm:py-4"
+                    className="group flex items-center justify-between border-b border-line py-3.5 font-display text-2xl leading-none tracking-tight text-bone transition-colors duration-300 active:text-mango"
                   >
                     <span>{link.label}</span>
-                    <span className="text-xl text-stone opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
+                    <span className="text-base text-stone opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
                       →
                     </span>
                   </Link>
@@ -431,12 +435,24 @@ export default function Navigation() {
             </nav>
 
             {/* MOBILE THEME */}
-            <div className="border-t border-line px-6 py-3.5">
+            <div className="border-t border-line px-6 py-4">
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="label-technical text-stone transition-colors hover:text-bone"
+                className="flex w-full items-center justify-center gap-2.5 border border-line-strong px-4 py-3 text-[11px] font-medium uppercase tracking-[0.16em] text-bone transition-colors hover:border-bone active:bg-bone active:text-void"
               >
+                {darkMode ? (
+                  // sun — switching to light
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4" />
+                  </svg>
+                ) : (
+                  // moon — switching to dark
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />
+                  </svg>
+                )}
                 {darkMode ? "SWITCH TO LIGHT MODE" : "SWITCH TO DARK MODE"}
               </button>
             </div>
@@ -475,8 +491,6 @@ export default function Navigation() {
 
               <div className="flex gap-6 label-technical">
                 <span className="transition-colors hover:text-bone">INSTAGRAM</span>
-                <span className="transition-colors hover:text-bone">TIKTOK</span>
-                <span className="transition-colors hover:text-bone">PINTEREST</span>
               </div>
             </div>
           </motion.div>

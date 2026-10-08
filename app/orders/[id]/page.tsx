@@ -8,7 +8,12 @@ import { useParams } from "next/navigation";
 import Navigation from "@/app/components/Navigation";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
 import { formatPrice } from "@/app/data/productTypes";
-import { ORDER_STATUS_STYLE } from "@/app/orders/orderStatus";
+import {
+  lineBadgeText,
+  lineReturnBadges,
+  orderStatusStyle,
+  type OrderReturnRequest,
+} from "@/app/orders/orderStatus";
 import OrderTracking from "./OrderTracking";
 import OrderReturns from "./OrderReturns";
 import OrderReviews from "./OrderReviews";
@@ -74,6 +79,9 @@ const orderId =
   const [failedImages, setFailedImages] = useState<Set<string>>(
     new Set()
   );
+
+  // Filled in by <OrderReturns> (it already loads this order's requests).
+  const [returnRequests, setReturnRequests] = useState<OrderReturnRequest[]>([]);
 
 useEffect(() => {
   if (!orderId) return;
@@ -141,11 +149,13 @@ useEffect(() => {
     }).format(new Date(date));
   };
 
-  const statusLabel = (status: Order["status"]) =>
-    ORDER_STATUS_STYLE[status]?.label ?? "PROCESSING";
+  // DELIVERED, or the return / exchange step when the whole order was
+  // returned or exchanged (e.g. REFUND COMPLETED).
+  const statusLabel = (current: Order) =>
+    orderStatusStyle(current, returnRequests).label;
 
-  const statusClass = (status: Order["status"]) =>
-    ORDER_STATUS_STYLE[status]?.className ?? "text-blue-400";
+  const statusClass = (current: Order) =>
+    orderStatusStyle(current, returnRequests).className;
 
   const handleDownloadSummary = () => {
     window.print();
@@ -252,7 +262,8 @@ useEffect(() => {
 
                 <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
+                    {/* Order number: kept small so it fits on one line on phones */}
+                    <h1 className="font-display text-[22px] leading-tight tracking-tight text-bone [overflow-wrap:anywhere] sm:text-3xl">
                       {order.id}
                     </h1>
 
@@ -269,10 +280,10 @@ useEffect(() => {
 
                     <p
                       className={`mt-2 text-xs font-medium tracking-[0.16em] ${statusClass(
-                        order.status
+                        order
                       )}`}
                     >
-                      {statusLabel(order.status)}
+                      {statusLabel(order)}
                     </p>
                   </div>
                 </div>
@@ -354,6 +365,16 @@ useEffect(() => {
                                     QUANTITY — {line.quantity}
                                   </span>
                                 </div>
+
+                                {/* Return / exchange step for this product only */}
+                                {lineReturnBadges(order, line, returnRequests).map((badge) => (
+                                  <p
+                                    key={badge.key}
+                                    className={`mt-3 font-mono text-[10px] font-medium tracking-[0.12em] ${badge.className}`}
+                                  >
+                                    {lineBadgeText(badge)}
+                                  </p>
+                                ))}
                               </div>
 
                               <div className="mt-4 flex items-center justify-between gap-4">
@@ -403,7 +424,10 @@ useEffect(() => {
                     </div>
                   </section>
 
-                  <OrderReturns order={order} />
+                  <OrderReturns
+                    order={order}
+                    onRequestsChange={setReturnRequests}
+                  />
                 </div>
 
                 {/* RIGHT / SUMMARY */}

@@ -260,8 +260,10 @@ export default function ProductDetail({
 
       {/* Right: info */}
       <div className="flex min-w-0 flex-col">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="min-w-0 font-display text-4xl leading-[0.95] tracking-tight text-bone sm:text-5xl">
+        {/* Phones: the name gets the full width (Share / ♡ go just below)
+            so words never break in the middle. 640px+: side by side. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <h1 className="min-w-0 font-display text-[clamp(1.75rem,8.5vw,2.25rem)] leading-[0.95] tracking-tight text-bone sm:text-5xl lg:text-4xl xl:text-5xl">
             {product.name}
           </h1>
           <div className="flex shrink-0 items-center gap-2">
@@ -500,16 +502,6 @@ export default function ProductDetail({
           </details>
         )}
       </div>
-
-      {/* MOBILE STICKY ADD TO BAG */}
-      {!selectedSoldOut && (
-        <div className="fixed inset-x-0 bottom-0 z-[9980] border-t border-line bg-void/95 p-3 backdrop-blur-xl lg:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-          <button type="button" onClick={handleAddToBag} disabled={productSoldOut} className="flex w-full items-center justify-between bg-bone px-4 py-4 text-xs font-medium tracking-[0.18em] text-void transition-colors hover:bg-mango disabled:opacity-40">
-            <span>{productSoldOut ? "SOLD OUT" : justAdded ? "ADDED TO BAG ✓" : "ADD TO BAG"}</span>
-            <span className="font-mono tracking-normal">{formatPrice(salePrice)}</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 }

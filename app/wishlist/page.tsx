@@ -9,7 +9,7 @@ import ProductQuickAddModal from "@/app/components/ProductQuickAddModal";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useWishlistStore } from "@/app/store/useWishlistStore";
 import { useProducts } from "@/app/lib/useProducts";
-import { formatPrice, getProductSalePrice } from "@/app/data/productTypes";
+import { getProductSalePrice } from "@/app/data/productTypes";
 
 interface WishlistItem {
   productId: string;
@@ -373,7 +373,7 @@ export default function WishlistPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-6 sm:gap-y-14 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="-mx-5 grid grid-cols-2 gap-x-1 gap-y-8 sm:mx-0 sm:gap-x-6 sm:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
                   {visible.map(
                     (product) =>
                       product && (
@@ -383,28 +383,22 @@ export default function WishlistPage() {
 
                             {Number(product.inventory) > 0 &&
                               Number(product.inventory) <= 2 && (
-                                <p className="mt-2 text-[10px] font-medium tracking-[0.14em] text-mango">
+                                <p className="mt-2 px-2 text-[10px] font-medium tracking-[0.14em] text-mango sm:px-2.5">
                                   ONLY {product.inventory} LEFT
                                 </p>
                               )}
 
-                            <div className="mt-3 flex items-center justify-end">
+                            <div className="mt-3 flex items-center px-2 sm:px-2.5">
                               <button
                                 type="button"
                                 onClick={() =>
                                   setQuickProductId(product.id)
                                 }
-                                className="border border-line-strong px-3 py-2 text-[10px] tracking-[0.12em] text-bone hover:border-bone"
+                                className="w-full border border-line-strong px-3 py-2 text-[10px] tracking-[0.12em] text-bone transition-colors hover:border-bone hover:bg-bone hover:text-void"
                               >
                                 MOVE TO BAG
                               </button>
                             </div>
-
-                            <p className="mt-2 text-[10px] text-stone">
-                              {formatPrice(
-                                getProductSalePrice(product)
-                              )}
-                            </p>
                           </div>
                         </div>
                       )

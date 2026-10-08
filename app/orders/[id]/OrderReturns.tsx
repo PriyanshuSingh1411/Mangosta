@@ -31,7 +31,14 @@ type ReturnableOrder = {
 type Selection = Record<string, { quantity: number; exchangeSize: string; exchangeColor: string }>;
 
 /** Return / exchange requests for one order (customer side). */
-export default function OrderReturns({ order }: { order: ReturnableOrder }) {
+export default function OrderReturns({
+  order,
+  onRequestsChange,
+}: {
+  order: ReturnableOrder;
+  /** Lets the order page show the return / exchange step in its STATUS. */
+  onRequestsChange?: (requests: ReturnRequest[]) => void;
+}) {
   const [policy, setPolicy] = useState<ReturnsPolicy | null>(null);
   const [requests, setRequests] = useState<ReturnRequest[]>([]);
   const [open, setOpen] = useState(false);
@@ -41,15 +48,15 @@ export default function OrderReturns({ order }: { order: ReturnableOrder }) {
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!data) return;
+        const forThisOrder: ReturnRequest[] = (
+          Array.isArray(data.requests) ? data.requests : []
+        ).filter((request: ReturnRequest) => request.orderId === order.id);
         setPolicy(data.policy);
-        setRequests(
-          (Array.isArray(data.requests) ? data.requests : []).filter(
-            (request: ReturnRequest) => request.orderId === order.id
-          )
-        );
+        setRequests(forThisOrder);
+        onRequestsChange?.(forThisOrder);
       })
       .catch(() => undefined); // the section simply stays hidden
-  }, [order.id]);
+  }, [order.id, onRequestsChange]);
 
   useEffect(() => {
     load();

@@ -5,6 +5,7 @@ import {
   normalizeEmail,
   normalizeMobile,
   isValidMobile,
+  isValidEmail,
   OTP_MAX_ATTEMPTS,
   type OtpPurpose,
 } from "@/app/lib/auth/otp";
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     const purpose: OtpPurpose = body?.purpose === "signup" ? "signup" : "signin";
     const mobile = normalizeMobile(body?.mobile);
 
-    if (!email || !email.includes("@")) {
+    if (!isValidEmail(email)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
 
