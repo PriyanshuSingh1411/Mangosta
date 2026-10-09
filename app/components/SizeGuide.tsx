@@ -111,7 +111,7 @@ function SizeGuideModal({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="label-technical mb-2">SIZE GUIDE</p>
-            <h2 className="font-display text-2xl uppercase tracking-tight text-bone">
+            <h2 className="type-heading uppercase text-bone">
               {CATEGORY_LABELS[category]}
             </h2>
           </div>

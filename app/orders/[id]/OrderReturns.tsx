@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useProducts } from "@/app/lib/useProducts";
-import { getProductSizes, isVariantAvailable } from "@/app/data/productTypes";
+import { formatPrice, getProductSizes, isVariantAvailable } from "@/app/data/productTypes";
 import {
   RETURN_STATUS_LABELS,
   returnDaysLeft,
@@ -127,6 +127,25 @@ export default function OrderReturns({
                     </li>
                   ))}
                 </ul>
+                {/* Refunds marked done before amounts were saved show no figure. */}
+                {request.type === "return" &&
+                  request.status !== "rejected" &&
+                  request.refund &&
+                  !(request.status === "completed" && typeof request.refundedAmount !== "number") && (
+                  <p className="mt-2 text-xs text-bone-dim">
+                    {request.status === "completed" ? "Refunded" : "Refund"}:{" "}
+                    <span className="font-medium text-bone">
+                      {formatPrice(
+                        request.status === "completed" && typeof request.refundedAmount === "number"
+                          ? request.refundedAmount
+                          : request.refund.total
+                      )}
+                    </span>
+                    {request.refund.shipping > 0 && (
+                      <span className="text-stone"> (incl. {formatPrice(request.refund.shipping)} shipping)</span>
+                    )}
+                  </p>
+                )}
                 {request.adminNote && (
                   <p className="mt-3 border-t border-line pt-3 text-xs text-bone-dim">
                     <span className="text-stone">MANGOSTA:</span> {request.adminNote}
@@ -221,6 +240,15 @@ function ReturnForm({
       });
       if (unchanged) {
         setError("For an exchange, choose a different size or colour.");
+        return;
+      }
+      const soldOut = items.find((item) => {
+        const line = lines.find((candidate) => candidate.lineId === item.lineId);
+        const product = line && products.find((candidate) => candidate.id === line.productId);
+        return product && !isVariantAvailable(product, item.exchangeColor, item.exchangeSize);
+      });
+      if (soldOut) {
+        setError("The size or colour you chose is sold out. Please choose another one.");
         return;
       }
     }
@@ -343,12 +371,20 @@ function ReturnForm({
                             }
                             className={select}
                           >
-                            {sizes.map((size) => (
-                              <option key={size} value={size}>
-                                {size}
-                                {product && !isVariantAvailable(product, chosen.exchangeColor, size) ? " (sold out)" : ""}
-                              </option>
-                            ))}
+                            {sizes.map((size) => {
+                              const soldOut = product ? !isVariantAvailable(product, chosen.exchangeColor, size) : false;
+                              return (
+                                <option
+                                  key={size}
+                                  value={size}
+                                  // Sold-out sizes can't be picked (the one already shown stays selectable)
+                                  disabled={soldOut && size !== chosen.exchangeSize}
+                                >
+                                  {size}
+                                  {soldOut ? " (sold out)" : ""}
+                                </option>
+                              );
+                            })}
                           </select>
                         </label>
                       </>

@@ -57,14 +57,14 @@ export default function AboutSection() {
             <p className="label-technical">07 — ABOUT MANGOSTA</p>
             <span className="hidden font-mono text-[10px] tracking-[0.18em] text-stone sm:block">FW / 26</span>
           </div>
-          <h1 className="mt-8 font-display text-[18vw] leading-[0.76] tracking-[-0.075em] text-bone sm:text-[15vw] lg:text-[12.5vw]">
+          <h1 className="mt-8 type-display text-bone">
             ABOUT
           </h1>
         </div>
 
         <div ref={contentRef} className="grid gap-14 pt-12 sm:pt-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
           <div>
-            <p className="max-w-3xl font-display text-3xl uppercase leading-[0.98] tracking-[-0.035em] text-bone sm:text-5xl lg:text-6xl">
+            <p className="max-w-3xl type-title uppercase text-bone">
               WE DON&apos;T FOLLOW THE CULTURE. WE CREATE IT.
             </p>
           </div>
@@ -85,15 +85,15 @@ export default function AboutSection() {
         <div className="mt-16 grid border-y border-line sm:mt-24 sm:grid-cols-3">
           <div className="border-b border-line px-0 py-7 sm:border-b-0 sm:border-r sm:py-9 sm:pr-8">
             <p className="label-technical mb-3">01 / FOUNDED</p>
-            <p className="font-display text-4xl tracking-tight text-bone">2024</p>
+            <p className="type-title text-bone">2024</p>
           </div>
           <div className="border-b border-line px-0 py-7 sm:border-b-0 sm:border-r sm:px-8 sm:py-9">
             <p className="label-technical mb-3">02 / STUDIO</p>
-            <p className="font-display text-4xl tracking-tight text-bone">GLOBAL</p>
+            <p className="type-title text-bone">GLOBAL</p>
           </div>
           <div className="px-0 py-7 sm:py-9 sm:pl-8">
             <p className="label-technical mb-3">03 / DROPS</p>
-            <p className="font-display text-4xl tracking-tight text-bone">LIMITED</p>
+            <p className="type-title text-bone">LIMITED</p>
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import {
   getReviewEligibility,
 } from "@/app/lib/reviews";
 import { summarizeReviews } from "@/app/data/storeTypes";
+import { isStoreReviewPhotoUrl } from "@/app/lib/reviewPhotos";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +43,11 @@ export async function POST(req: NextRequest) {
   const rating = Number(body?.rating);
   const title = String(body?.title ?? "").trim();
   const text = String(body?.body ?? "").trim();
+  // Only photos uploaded through /api/reviews/upload (this store's own
+  // Cloudinary folder) are kept.
   const photos: string[] = (Array.isArray(body?.photos) ? body.photos : [])
     .map((url: unknown) => String(url ?? ""))
-    .filter((url: string) => url.startsWith("https://res.cloudinary.com/"))
+    .filter((url: string) => isStoreReviewPhotoUrl(url))
     .slice(0, 3);
 
   if (!(await getProduct(productId))) {

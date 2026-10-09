@@ -51,6 +51,24 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       .then((data) => {
         if (!cancelled) {
           setUser(data?.user ?? null);
+
+          // Links like /?auth=signup (e.g. the "no account yet" email) open
+          // the sign-up / sign-in window for signed-out visitors.
+          const params = new URLSearchParams(window.location.search);
+          const requested = params.get("auth");
+          if (requested === "signup" || requested === "signin") {
+            params.delete("auth");
+            const query = params.toString();
+            window.history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
+            );
+            if (!data?.user) {
+              setMode(requested);
+              setAuthOpen(true);
+            }
+          }
         }
       })
       .catch(() => {

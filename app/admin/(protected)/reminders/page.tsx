@@ -60,7 +60,7 @@ export default function AdminRemindersPage() {
     return (
       <div>
         <p className="label-technical mb-2">MARKETING</p>
-        <h1 className="font-display text-2xl tracking-tight text-bone sm:text-3xl">Reminders</h1>
+        <h1 className="type-heading text-bone">Reminders</h1>
         <p className="mt-8 text-sm text-stone">{error ?? "Loading…"}</p>
       </div>
     );
@@ -69,10 +69,12 @@ export default function AdminRemindersPage() {
   return (
     <div className="max-w-3xl">
       <p className="label-technical mb-2">MARKETING</p>
-      <h1 className="mb-3 font-display text-2xl tracking-tight text-bone sm:text-3xl">Reminders</h1>
+      <h1 className="mb-3 type-heading text-bone">Reminders</h1>
       <p className="mb-8 max-w-2xl text-sm leading-relaxed text-stone">
-        Automatic emails: a reminder to signed-in customers who leave items in their bag, and a
-        &ldquo;back in stock&rdquo; email to customers who asked to be told about a sold-out size.
+        Automatic emails: a reminder to signed-in customers who leave items in their bag (only
+        customers who ticked &ldquo;New drops &amp; editorial updates&rdquo; on their account; every
+        reminder has an unsubscribe link), and a &ldquo;back in stock&rdquo; email to customers who
+        asked to be told about a sold-out size.
       </p>
 
       {stats && (
@@ -92,12 +94,12 @@ export default function AdminRemindersPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="border border-line px-4 py-4">
               <p className="label-technical mb-2">Bags saved</p>
-              <p className="font-display text-2xl text-bone">{stats.bagsWaiting}</p>
+              <p className="font-display text-lg tracking-tight text-bone sm:text-xl">{stats.bagsWaiting}</p>
               <p className="mt-1 text-xs text-stone">not reminded yet</p>
             </div>
             <div className="border border-line px-4 py-4">
               <p className="label-technical mb-2">Restock requests</p>
-              <p className="font-display text-2xl text-bone">{stats.waitingAlerts}</p>
+              <p className="font-display text-lg tracking-tight text-bone sm:text-xl">{stats.waitingAlerts}</p>
               <p className="mt-1 text-xs text-stone">customers waiting</p>
             </div>
           </div>

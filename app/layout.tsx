@@ -19,8 +19,11 @@ import PageTransition from "./components/PageTransition";
 import ToastProvider from "./components/ToastProvider";
 import OfflineBanner from "./components/OfflineBanner";
 import ScrollToTop from "./components/ScrollToTop";
+import { getSiteUrl } from "./lib/siteUrl";
 
-const SITE_URL = "https://mangosta.example.com";
+// The live address (NEXT_PUBLIC_SITE_URL / Vercel production URL), used
+// for links in shared previews and search results.
+const SITE_URL = getSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -24,7 +24,6 @@ export function useProducts(): UseProductsResult {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
     fetch("/api/products")
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load products (${res.status})`);
@@ -51,6 +50,9 @@ export function useProducts(): UseProductsResult {
     products,
     isLoading,
     error,
-    refetch: () => setRefetchToken((t) => t + 1),
+    refetch: () => {
+      setIsLoading(true);
+      setRefetchToken((t) => t + 1);
+    },
   };
 }

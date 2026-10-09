@@ -7,7 +7,7 @@ export default async function SharedWishlistPage({ params }: { params: Promise<{
   return (
     <>
       <Navigation />
-      <main id="main-content" className="min-h-screen bg-void px-5 pb-28 pt-32 sm:px-8 sm:pt-40">
+      <main id="main-content" className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <SharedWishlist token={token} />
       </main>
       <Footer />

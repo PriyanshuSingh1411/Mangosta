@@ -6,6 +6,8 @@ import {
   getProductSalePrice,
   getVariantStock,
   hasVariantStock,
+  MAX_PER_SIZE_PER_ORDER,
+  PUBLIC_STOCK_CAP,
 } from "@/app/data/productTypes";
 import type { Product } from "@/app/data/productTypes";
 import { trackEngagement } from "@/app/lib/trackEngagement";
@@ -13,7 +15,13 @@ import { trackEngagement } from "@/app/lib/trackEngagement";
 /**
  * Units of this size/colour the customer can still have in the bag.
  * Products with stock per size & colour are limited per variant; other
- * products share one stock across all of their lines.
+ * products share one stock across all of their lines. Never more than
+ * MAX_PER_SIZE_PER_ORDER of one size (the checkout enforces the same).
+ *
+ * The storefront only knows stock up to PUBLIC_STOCK_CAP ("10 or more"),
+ * so a shared stock shown at the cap can't be divided between sizes here:
+ * each size may then have up to the per-size maximum, and the checkout
+ * checks the real stock.
  */
 export function maxAllowedForLine(
   lines: CartLine[],
@@ -23,13 +31,26 @@ export function maxAllowedForLine(
   lineId: string
 ): number {
   const stock = getVariantStock(product, color, size);
-  if (hasVariantStock(product)) return stock;
+  if (hasVariantStock(product)) return Math.min(MAX_PER_SIZE_PER_ORDER, stock);
+  if (stock >= PUBLIC_STOCK_CAP) return MAX_PER_SIZE_PER_ORDER;
 
   const inOtherLines = lines
     .filter((line) => line.product.id === product.id && line.lineId !== lineId)
     .reduce((sum, line) => sum + line.quantity, 0);
 
-  return Math.max(0, stock - inOtherLines);
+  return Math.min(MAX_PER_SIZE_PER_ORDER, Math.max(0, stock - inOtherLines));
+}
+
+/**
+ * Why one more of a size can't go in the bag: sold out, the per-size limit
+ * per order, or all available units are already in the bag.
+ */
+export function bagLimitMessage(inBag: number, allowed: number): string {
+  if (inBag <= 0) return "This size just sold out.";
+  if (allowed >= MAX_PER_SIZE_PER_ORDER) {
+    return `You can have up to ${MAX_PER_SIZE_PER_ORDER} of each size in one order.`;
+  }
+  return "All available units of this size are already in your bag.";
 }
 
 export interface CartLine {

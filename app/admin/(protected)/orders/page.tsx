@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Order, OrderStatus } from "@/app/lib/dataStore";
 import { formatPrice } from "@/app/data/productTypes";
+import { canChangeOrderStatus } from "@/app/data/storeTypes";
 
 const STATUS_OPTIONS: OrderStatus[] = [
   "pending",
@@ -163,7 +164,7 @@ export default function AdminOrdersPage() {
       <p className="label-technical mb-2">SALES</p>
 
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="font-display text-2xl tracking-tight text-bone sm:text-3xl">
+        <h1 className="type-heading text-bone">
           Orders
         </h1>
 
@@ -290,7 +291,7 @@ export default function AdminOrdersPage() {
                         {STATUS_LABEL[order.status]}
                       </span>
 
-                      <span className="font-mono text-sm text-bone-dim">
+                      <span className="type-price text-sm text-bone-dim">
                         {formatPrice(order.total)}
                       </span>
 
@@ -333,7 +334,7 @@ export default function AdminOrdersPage() {
                               </span>
                             </span>
 
-                            <span className="shrink-0 font-mono text-stone">
+                            <span className="shrink-0 type-price text-stone">
                               {formatPrice(
                                 line.price *
                                   line.quantity
@@ -478,25 +479,42 @@ export default function AdminOrdersPage() {
 
                         <div className="flex flex-wrap gap-1.5">
                           {STATUS_OPTIONS.map(
-                            (status) => (
+                            (status) => {
+                              const isCurrent = status === order.status;
+                              // Only the allowed next steps can be clicked.
+                              const allowed = isCurrent || canChangeOrderStatus(order.status, status);
+                              const isRto = order.status === "shipped" && status === "cancelled";
+
+                              return (
                               <button
                                 key={status}
                                 type="button"
                                 disabled={
-                                  updatingId === order.id ||
-                                  (order.status === "cancelled" &&
-                                    Boolean(order.stockRestored) &&
-                                    status !== "cancelled")
+                                  updatingId === order.id || !allowed
                                 }
                                 title={
-                                  order.status === "cancelled" && order.stockRestored && status !== "cancelled"
-                                    ? "This order's stock was put back when it was cancelled, so it can't be reopened."
-                                    : undefined
+                                  isRto
+                                    ? "Returned to us undelivered (RTO): cancels the order, puts the stock back and gives the coupon use back."
+                                    : !allowed
+                                      ? order.status === "delivered"
+                                        ? "Delivered is final. Returns and exchanges are handled in Admin → Returns."
+                                        : order.status === "cancelled"
+                                          ? "Cancelled is final."
+                                          : `A ${STATUS_LABEL[order.status].toLowerCase()} order can't be moved to ${STATUS_LABEL[status].toLowerCase()}.`
+                                      : undefined
                                 }
                                 onClick={() => {
-                                  if (status === order.status) return;
+                                  if (isCurrent || !allowed) return;
                                   if (status === "shipped") {
                                     openShipmentForm(order);
+                                    return;
+                                  }
+                                  if (
+                                    isRto &&
+                                    !window.confirm(
+                                      `Mark order ${order.id} as returned to us (RTO)?\n\nIt will be cancelled, its stock put back and the coupon use given back. This can't be undone.`
+                                    )
+                                  ) {
                                     return;
                                   }
                                   void updateOrder(order.id, status);
@@ -508,9 +526,10 @@ export default function AdminOrdersPage() {
                                     : "border border-line-strong text-stone hover:border-bone hover:text-bone"
                                 }`}
                               >
-                                {STATUS_LABEL[status]}
+                                {isRto ? "Cancelled (RTO)" : STATUS_LABEL[status]}
                               </button>
-                            )
+                              );
+                            }
                           )}
                         </div>
                       </div>

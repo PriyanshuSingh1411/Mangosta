@@ -329,7 +329,7 @@ export default function WishlistButton({
 
                     <h2
                       id="save-wishlist-title"
-                      className="mt-2 font-display text-3xl tracking-tight text-bone"
+                      className="mt-2 type-heading text-bone"
                     >
                       SAVE TO WISHLIST
                     </h2>

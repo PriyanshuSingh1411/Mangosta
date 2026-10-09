@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 import Navigation from "@/app/components/Navigation";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
@@ -12,6 +13,8 @@ import {
   getProductSalePrice,
   hasProductDiscount,
   getProductStrikethroughPrice,
+  getProductSavingsAmount,
+  getProductSavingsPercent,
 } from "@/app/data/productTypes";
 import { useCursorHover } from "@/app/lib/useCursorHover";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -126,8 +129,9 @@ type SavedAddress = {
 };
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const { lines, subtotal } = useCartStore();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, openAuth } = useAuth();
 
   const shopCursor = useCursorHover("shop", "SHOP");
 
@@ -183,21 +187,49 @@ export default function CheckoutPage() {
 
   const currentSubtotal = subtotal();
 
+  // Saved on product discounts, measured against the crossed-out prices
+  // shown on each line (so this total matches what the shopper sees).
   const productDiscount = useMemo(() => {
-    return lines.reduce((sum, line) => {
-      const basePrice = line.product.price || 0;
-      const discountPercent = Number(line.product.discountPercent) || 0;
-
-      if (discountPercent > 0) {
-        const lineDiscount =
-          (basePrice * discountPercent / 100) * line.quantity;
-
-        return sum + lineDiscount;
-      }
-
-      return sum;
-    }, 0);
+    return lines.reduce(
+      (sum, line) =>
+        sum + getProductSavingsAmount(line.product) * line.quantity,
+      0
+    );
   }, [lines]);
+
+  /*
+   * --------------------------------------------------------------------------
+   * PIN code check
+   * --------------------------------------------------------------------------
+   */
+
+  const [delivery, setDelivery] = useState<
+    (PincodeCheckResult & {
+      enabled: boolean;
+      pincode: string;
+    }) | null
+  >(null);
+
+  /** Delivery estimate + COD availability for a PIN code. */
+  const checkDelivery = async (
+    pincode: string
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/delivery/check?pincode=${pincode}`,
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+
+      setDelivery({
+        ...data,
+        pincode,
+      });
+    } catch {
+      setDelivery(null);
+    }
+  };
 
   /*
    * --------------------------------------------------------------------------
@@ -205,11 +237,11 @@ export default function CheckoutPage() {
    * --------------------------------------------------------------------------
    */
 
-  useEffect(() => {
-    if (authLoading || !user) {
-      return;
-    }
-
+  // Once per signed-in account (adjusted while rendering instead of in an
+  // effect, so the form never shows a flash of empty fields).
+  const [prefilledFor, setPrefilledFor] = useState<string | null>(null);
+  if (!authLoading && user && prefilledFor !== user.id) {
+    setPrefilledFor(user.id);
     setForm((current) => ({
       ...current,
       email: user.email || current.email,
@@ -217,7 +249,7 @@ export default function CheckoutPage() {
       lastName: user.lastName || current.lastName,
       mobile: normalizeIndianMobile(user.mobile || current.mobile),
     }));
-  }, [authLoading, user]);
+  }
 
   /*
    * --------------------------------------------------------------------------
@@ -414,7 +446,22 @@ export default function CheckoutPage() {
    * --------------------------------------------------------------------------
    */
 
-  useEffect(() => {
+  // The best unlocked cart-value reward is applied automatically (unless
+  // the customer applied a regular coupon). Checked whenever the subtotal,
+  // the rewards or the applied coupon change - while rendering, so the
+  // total never shows a stale discount for a moment.
+  const rewardCheckKey = JSON.stringify([
+    currentSubtotal,
+    checkoutSettings.progressRewards,
+    appliedCoupon?.code ?? "",
+    Boolean(appliedCoupon?.isProgressReward),
+    appliedCoupon?.discount ?? 0,
+  ]);
+  const [rewardCheckedFor, setRewardCheckedFor] = useState("");
+
+  if (rewardCheckKey !== rewardCheckedFor) {
+    setRewardCheckedFor(rewardCheckKey);
+
     const rewards = (
       checkoutSettings.progressRewards || []
     )
@@ -445,51 +492,40 @@ export default function CheckoutPage() {
         setAppliedCoupon(null);
         setCouponCode("");
       }
+    } else if (!appliedCoupon || currentIsReward) {
+      const discount = Math.min(
+        currentSubtotal,
+        Math.round(
+          currentSubtotal *
+            (unlocked.discountPercent / 100) *
+            100
+        ) / 100
+      );
 
-      return;
+      const alreadyApplied =
+        currentIsReward &&
+        appliedCoupon?.code === unlocked.couponCode &&
+        appliedCoupon?.discount === discount;
+
+      if (!alreadyApplied) {
+        setAppliedCoupon({
+          code: unlocked.couponCode,
+          discountType: "percentage",
+          discountValue:
+            unlocked.discountPercent,
+          minOrderValue: unlocked.threshold,
+          maxDiscount: 0,
+          startsAt: "",
+          expiresAt: "",
+          discount,
+          isProgressReward: true,
+        });
+
+        setCouponCode(unlocked.couponCode);
+        setCouponError(null);
+      }
     }
-
-    if (
-      appliedCoupon?.code === unlocked.couponCode &&
-      currentIsReward
-    ) {
-      return;
-    }
-
-    if (appliedCoupon && !currentIsReward) {
-      return;
-    }
-
-    const discount = Math.min(
-      currentSubtotal,
-      Math.round(
-        currentSubtotal *
-          (unlocked.discountPercent / 100) *
-          100
-      ) / 100
-    );
-
-    setAppliedCoupon({
-      code: unlocked.couponCode,
-      discountType: "percentage",
-      discountValue:
-        unlocked.discountPercent,
-      minOrderValue: unlocked.threshold,
-      maxDiscount: 0,
-      startsAt: "",
-      expiresAt: "",
-      discount,
-      isProgressReward: true,
-    });
-
-    setCouponCode(unlocked.couponCode);
-    setCouponError(null);
-  }, [
-    currentSubtotal,
-    checkoutSettings.progressRewards,
-    appliedCoupon?.code,
-    appliedCoupon?.isProgressReward,
-  ]);
+  }
 
   /*
    * --------------------------------------------------------------------------
@@ -762,32 +798,48 @@ void trackEngagement({
         currentSubtotal < reward.threshold
     ) || null;
 
+ /**
+  * Unlock bar: each reward's circle sits at the centre of its own equal
+  * column (so circles never hang off the ends and every label has the
+  * same room, on any screen). The fill grows from the start of the bar to
+  * the first circle, then step by step between circles.
+  */
+ const rewardPosition = (index: number) =>
+   ((index + 0.5) / Math.max(1, progressRewards.length)) * 100;
+
  const progressPercent = (() => {
   if (progressRewards.length === 0) {
     return 0;
   }
 
-  const firstThreshold = progressRewards[0].threshold;
-  const lastThreshold =
-    progressRewards[progressRewards.length - 1].threshold;
+  const last = progressRewards.length - 1;
 
-  if (currentSubtotal <= firstThreshold) {
-    return 0;
-  }
-
-  if (currentSubtotal >= lastThreshold) {
+  if (currentSubtotal >= progressRewards[last].threshold) {
     return 100;
   }
 
-  const range = Math.max(1, lastThreshold - firstThreshold);
+  const firstThreshold = progressRewards[0].threshold;
 
-  return Math.min(
-    100,
-    Math.max(
-      0,
-      ((currentSubtotal - firstThreshold) / range) * 100
-    )
-  );
+  if (currentSubtotal < firstThreshold) {
+    return firstThreshold > 0
+      ? Math.max(0, (currentSubtotal / firstThreshold) * rewardPosition(0))
+      : 0;
+  }
+
+  for (let index = 0; index < last; index += 1) {
+    const from = progressRewards[index].threshold;
+    const to = progressRewards[index + 1].threshold;
+
+    if (currentSubtotal < to) {
+      const part = to > from ? (currentSubtotal - from) / (to - from) : 1;
+      return (
+        rewardPosition(index) +
+        part * (rewardPosition(index + 1) - rewardPosition(index))
+      );
+    }
+  }
+
+  return 100;
 })();
 
   /*
@@ -906,38 +958,6 @@ void trackEngagement({
     }
   };
 
-  /*
-   * --------------------------------------------------------------------------
-   * PIN code check
-   * --------------------------------------------------------------------------
-   */
-
-  const [delivery, setDelivery] = useState<
-    (PincodeCheckResult & {
-      enabled: boolean;
-      pincode: string;
-    }) | null
-  >(null);
-
-  const checkDelivery = async (
-    pincode: string
-  ) => {
-    try {
-      const response = await fetch(
-        `/api/delivery/check?pincode=${pincode}`,
-        { cache: "no-store" }
-      );
-
-      const data = await response.json();
-
-      setDelivery({
-        ...data,
-        pincode,
-      });
-    } catch {
-      setDelivery(null);
-    }
-  };
 
   /*
    * --------------------------------------------------------------------------
@@ -951,6 +971,23 @@ void trackEngagement({
     event.preventDefault();
 
     setSubmitError(null);
+
+    // Orders are placed from the customer's account (the server refuses
+    // signed-out orders), so ask them to sign in first.
+    if (!user) {
+      if (authLoading) {
+        setSubmitError(
+          "Checking your sign-in. Please try again in a moment."
+        );
+        return;
+      }
+
+      setSubmitError(
+        "Please sign in to place your order."
+      );
+      openAuth("signin");
+      return;
+    }
 
     const normalizedMobile =
       normalizeIndianMobile(
@@ -1001,7 +1038,8 @@ void trackEngagement({
     try {
       const checkoutData = {
         customer: {
-          email: form.email,
+          // Shown only; the server always uses the account's email.
+          email: user.email || form.email,
           firstName: form.firstName,
           lastName: form.lastName,
           mobile: normalizedMobile,
@@ -1045,8 +1083,7 @@ void trackEngagement({
         : "none",
   },
 });
-      window.location.href =
-        "/checkout/payment";
+      router.push("/checkout/payment");
     } catch {
       setSubmitError(
         "Unable to continue. Please try again."
@@ -1070,7 +1107,7 @@ void trackEngagement({
             CHECKOUT
           </p>
 
-          <h1 className="font-display text-4xl tracking-tight text-bone">
+          <h1 className="type-title text-bone">
             Your bag is empty.
           </h1>
 
@@ -1096,7 +1133,7 @@ void trackEngagement({
     <>
       <Navigation />
 
-      <main className="min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
+      <main className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <div className="mx-auto max-w-7xl">
 
           {/* HEADER */}
@@ -1106,7 +1143,7 @@ void trackEngagement({
               CHECKOUT
             </p>
 
-            <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
+            <h1 className="type-title text-bone">
               Complete your order.
             </h1>
 
@@ -1127,7 +1164,7 @@ void trackEngagement({
                       MANGOSTA UNLOCKS
                     </p>
 
-                    <h2 className="mt-2 font-display text-2xl tracking-tight text-bone sm:text-3xl">
+                    <h2 className="mt-2 type-heading text-bone">
                       BUILD YOUR DISCOUNT.
                     </h2>
                   </div>
@@ -1151,19 +1188,7 @@ void trackEngagement({
                         const unlocked =
                           currentSubtotal >=
                           reward.threshold;
-const firstThreshold =
-  progressRewards[0]?.threshold ?? 0;
-
-const lastThreshold =
-  progressRewards[progressRewards.length - 1]?.threshold ??
-  firstThreshold;
-
-const position =
-  lastThreshold === firstThreshold
-    ? 100
-    : ((reward.threshold - firstThreshold) /
-        (lastThreshold - firstThreshold)) *
-      100;
+                        const position = rewardPosition(index);
 
                         return (
                           <div
@@ -1190,7 +1215,13 @@ const position =
                     )}
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2">
+                  {/* One equal column per reward, centred under its circle */}
+                  <div
+                    className="mt-4 grid"
+                    style={{
+                      gridTemplateColumns: `repeat(${progressRewards.length}, minmax(0, 1fr))`,
+                    }}
+                  >
                     {progressRewards.map(
                       (reward) => {
                         const unlocked =
@@ -1200,11 +1231,12 @@ const position =
                         return (
                           <div
                             key={reward.id}
-                            className="min-w-0"
+                            className="flex min-w-0 flex-col items-center px-1 text-center"
                           >
-                            <div className="flex items-center gap-2">
+                            {/* "UNLOCKED" drops below the amount when there is no room */}
+                            <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
                               <p
-                                className={`font-mono text-xs ${
+                                className={`type-price text-xs ${
                                   unlocked
                                     ? "text-mango"
                                     : "text-stone"
@@ -1217,14 +1249,14 @@ const position =
                               </p>
 
                               {unlocked && (
-                                <span className="rounded-full border border-mango/30 bg-mango/10 px-1.5 py-0.5 text-[8px] font-medium tracking-[0.12em] text-mango">
+                                <span className="whitespace-nowrap rounded-full border border-mango/30 bg-mango/10 px-1.5 py-0.5 text-[8px] font-medium tracking-[0.12em] text-mango">
                                   UNLOCKED
                                 </span>
                               )}
                             </div>
 
                             <p
-                              className={`mt-1 truncate text-[10px] tracking-[0.08em] ${
+                              className={`mt-1 text-[10px] tracking-[0.08em] ${
                                 unlocked
                                   ? "text-bone"
                                   : "text-stone-dark"
@@ -1237,7 +1269,7 @@ const position =
                             {unlocked &&
                               reward.couponCode && (
                                 <p
-                                  className="mt-1 truncate font-mono text-[9px] tracking-[0.08em] text-mango/80"
+                                  className="mt-1 max-w-full break-words font-mono text-[9px] tracking-[0.08em] text-mango/80"
                                   title={
                                     reward.couponCode
                                   }
@@ -1278,7 +1310,7 @@ const position =
                       </div>
 
                       {nextReward && (
-                        <p className="font-mono text-xs text-mango">
+                        <p className="type-price text-xs text-mango">
                           ₹
                           {Math.max(
                             0,
@@ -1298,7 +1330,7 @@ const position =
                   ) : nextReward ? (
                     <p className="text-sm text-bone-dim">
                       YOU&apos;RE{" "}
-                      <span className="font-mono text-mango">
+                      <span className="type-price text-mango">
                         ₹
                         {Math.max(
                           0,
@@ -1368,17 +1400,38 @@ const position =
                 </legend>
 
                 <div className="grid grid-cols-1 gap-4">
-                  <input
-                    required
-                    type="email"
-                    autoComplete="email"
-                    placeholder="EMAIL"
-                    value={form.email}
-                    onChange={updateField(
-                      "email"
-                    )}
-                    className="border border-line-strong bg-transparent px-4 py-4 text-sm text-bone placeholder:text-stone-dark focus:border-bone focus:outline-none"
-                  />
+                  {/* Account email: fixed, the order is always sent to it */}
+                  <div>
+                    <input
+                      readOnly
+                      aria-readonly="true"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="EMAIL"
+                      aria-label="Email (your account email)"
+                      value={user?.email || ""}
+                      className="w-full cursor-default border border-line bg-transparent px-4 py-4 text-sm text-stone placeholder:text-stone-dark focus:outline-none"
+                    />
+
+                    {user ? (
+                      <p className="mt-2 text-xs text-stone">
+                        Order updates are sent to your account email.
+                      </p>
+                    ) : !authLoading ? (
+                      <p className="mt-2 text-xs text-stone">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openAuth("signin")
+                          }
+                          className="text-bone underline underline-offset-4 transition-colors hover:text-mango"
+                        >
+                          Sign in
+                        </button>{" "}
+                        to place your order.
+                      </p>
+                    ) : null}
+                  </div>
 
                   <input
                     required
@@ -1747,7 +1800,7 @@ const position =
                             {getProductStrikethroughPrice(
                               line.product
                             ) !== null && (
-                              <p className="font-mono text-[10px] text-stone-dark line-through">
+                              <p className="font-body tabular-nums text-[10px] text-stone-dark line-through">
                                 {formatPrice(
                                   (getProductStrikethroughPrice(
                                     line.product
@@ -1757,7 +1810,7 @@ const position =
                               </p>
                             )}
 
-                            <p className="font-mono text-xs font-semibold text-mango">
+                            <p className="type-price text-xs font-semibold text-mango">
                               {formatPrice(
                                 getProductSalePrice(
                                   line.product
@@ -1766,22 +1819,18 @@ const position =
                               )}
                             </p>
 
-                            <p className="mt-1 inline-block rounded bg-mango/10 px-1 py-0.5 text-[10px] tracking-wider text-mango">
-                              {Math.round(
-                                Number(
-                                  line.product
-                                    .discountPercent
-                                ) || 0
-                              )}
-                              % OFF
-                            </p>
+                            {getProductSavingsPercent(line.product) !== null && (
+                              <p className="mt-1 inline-block rounded-sm bg-mango/10 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-mango">
+                                Save {getProductSavingsPercent(line.product)}%
+                              </p>
+                            )}
                           </>
                         )}
 
                         {!hasProductDiscount(
                           line.product
                         ) && (
-                          <p className="font-mono text-xs text-bone-dim">
+                          <p className="type-price text-xs text-bone-dim">
                             {formatPrice(
                               getProductSalePrice(
                                 line.product
@@ -1980,7 +2029,7 @@ const position =
 
               {/* TOTALS */}
 
-              <div className="flex flex-col gap-3 font-mono text-sm">
+              <div className="flex flex-col gap-3 text-sm tabular-nums">
                 <div className="flex justify-between text-stone">
                   <span>Subtotal</span>
 
@@ -1995,17 +2044,15 @@ const position =
                   <div className="flex justify-between border-b border-mango/20 pb-2 text-mango">
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-semibold">
-                        Product Discounts
+                        You save on product discounts
                       </span>
 
                       <span className="text-xs text-mango/70">
+                        Already included in the subtotal ·{" "}
                         {
                           lines.filter(
                             (l) =>
-                              Number(
-                                l.product
-                                  .discountPercent
-                              ) > 0
+                              getProductSavingsAmount(l.product) > 0
                           ).length
                         }{" "}
                         item(s) with discount
@@ -2013,7 +2060,6 @@ const position =
                     </div>
 
                     <span className="text-sm font-semibold">
-                      -
                       {formatPrice(
                         productDiscount
                       )}
@@ -2070,7 +2116,7 @@ const position =
 
                 <div className="hairline my-1" />
 
-                <div className="flex justify-between text-base text-bone">
+                <div className="flex justify-between text-base font-bold text-bone">
                   <span>Total</span>
 
                   <span>

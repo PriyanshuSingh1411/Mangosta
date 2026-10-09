@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   try {
     const request = await createReturnRequest({
       email: user.email,
+      userId: user.id,
       orderId: String(body?.orderId ?? ""),
       type: body?.type === "exchange" ? "exchange" : "return",
       reason: String(body?.reason ?? ""),

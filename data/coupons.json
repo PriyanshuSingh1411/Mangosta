@@ -10,6 +10,8 @@
     "startsAt": "",
     "expiresAt": "",
     "usageLimit": 1,
-    "usageCount": 0
+    "usageCount": 0,
+    "perCustomerLimit": 1,
+    "firstOrderOnly": true
   }
 ]

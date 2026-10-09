@@ -200,7 +200,8 @@ export default function ShopGrid({
     <div>
       <div className="sticky top-[76px] z-40 -mx-5 mb-10 border-y border-line bg-void/95 px-5 py-4 backdrop-blur-xl sm:static sm:mx-0 sm:mb-14 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="no-scrollbar flex gap-2 overflow-x-auto">
+        {/* min-w-0: the tabs scroll sideways instead of pushing Sort off-screen */}
+        <div className="no-scrollbar flex min-w-0 gap-2 overflow-x-auto">
           {CATEGORIES.map((c) => (
             <button
               key={c.value}
@@ -218,13 +219,14 @@ export default function ShopGrid({
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Filters + sort: one row that shrinks the sort box on narrow phones */}
+        <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:shrink-0">
           <button
             type="button"
             onClick={() => setFiltersOpen((open) => !open)}
             aria-expanded={filtersOpen}
             aria-controls="shop-filters"
-            className={`border px-3 py-2 text-xs tracking-[0.1em] transition-colors ${
+            className={`shrink-0 border px-3 py-2 text-xs tracking-[0.1em] transition-colors ${
               filtersOpen || activeFilterCount > 0
                 ? "border-bone text-bone"
                 : "border-line-strong text-bone-dim hover:border-bone hover:text-bone"
@@ -239,7 +241,7 @@ export default function ShopGrid({
             id="sort-select"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortValue)}
-            className="border border-line-strong bg-transparent px-3 py-2 text-xs tracking-[0.05em] text-bone-dim focus:outline-none focus:border-bone"
+            className="min-w-0 flex-1 border border-line-strong bg-transparent px-3 py-2 text-xs tracking-[0.05em] text-bone-dim focus:outline-none focus:border-bone sm:flex-none"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value} className="bg-charcoal text-bone">

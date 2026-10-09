@@ -26,7 +26,7 @@ export default function AdminDeliveryPage() {
     return (
       <div>
         <p className="label-technical mb-2">SHIPPING</p>
-        <h1 className="font-display text-2xl tracking-tight text-bone sm:text-3xl">Delivery &amp; PIN codes</h1>
+        <h1 className="type-heading text-bone">Delivery &amp; PIN codes</h1>
         <p className="mt-8 text-sm text-stone">{error ?? "Loading…"}</p>
       </div>
     );
@@ -43,7 +43,7 @@ export default function AdminDeliveryPage() {
   return (
     <div className="max-w-4xl">
       <p className="label-technical mb-2">SHIPPING</p>
-      <h1 className="mb-3 font-display text-2xl tracking-tight text-bone sm:text-3xl">Delivery &amp; PIN codes</h1>
+      <h1 className="mb-3 type-heading text-bone">Delivery &amp; PIN codes</h1>
       <p className="mb-8 max-w-2xl text-sm leading-relaxed text-stone">
         Customers check their PIN code on product pages to see the delivery date and whether
         cash on delivery is available. Checkout uses the same rules: PIN codes you don&apos;t

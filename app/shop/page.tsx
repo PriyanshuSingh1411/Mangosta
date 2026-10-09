@@ -44,10 +44,10 @@ export default async function ShopPage({
   return (
     <>
       <Navigation />
-      <main id="main-content" className="min-h-screen bg-void px-5 pb-28 pt-32 sm:px-8 sm:pt-40">
+      <main id="main-content" className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <div className="mx-auto max-w-[1600px]">
           <p className="label-technical mb-5">SHOP</p>
-          <h1 className="mb-14 font-display text-[11vw] leading-[0.85] tracking-tight text-bone sm:text-6xl md:text-7xl">
+          <h1 className="mb-10 type-title text-bone sm:mb-14">
             ALL PRODUCTS
           </h1>
           <ShopGrid products={products} initialCategory={initialCategory} ratings={ratings} />

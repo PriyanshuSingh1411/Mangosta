@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useIsClient } from "@/app/lib/useBrowserValue";
 import Link from "next/link";
 import Image from "next/image";
 
 import Navigation from "@/app/components/Navigation";
+import { useAuth } from "@/app/components/AuthProvider";
 import ProductPlaceholderArt from "@/app/components/ProductPlaceholderArt";
 import { useCartStore } from "@/app/store/useCartStore";
 import {
   formatPrice,
   getProductSalePrice,
   getProductStrikethroughPrice,
-  hasProductDiscount,
+  getProductSavingsPercent,
 } from "@/app/data/productTypes";
 type PaymentMethod =
   | "cod"
@@ -36,15 +39,37 @@ type CheckoutData = {
   total: number;
 };
 
+/** The checkout details saved by the shipping step, or null. */
+function readSavedCheckout(): CheckoutData | null {
+  try {
+    const saved = sessionStorage.getItem("mangosta-checkout");
+    return saved ? (JSON.parse(saved) as CheckoutData) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function PaymentPage() {
+  const { openAuth } = useAuth();
+
   const {
     lines,
     subtotal,
     clearCartAfterOrder,
   } = useCartStore();
 
-  const [checkoutData, setCheckoutData] =
-    useState<CheckoutData | null>(null);
+  const router = useRouter();
+
+  // The details saved by the shipping step (sessionStorage), read once in
+  // the browser right after hydration: undefined until then, null when
+  // nothing usable was saved. Kept in state, so removing them after the
+  // order is placed doesn't change what this page shows.
+  const isClient = useIsClient();
+  const [checkoutData, setCheckoutData] = useState<CheckoutData | null | undefined>(undefined);
+
+  if (isClient && checkoutData === undefined) {
+    setCheckoutData(readSavedCheckout());
+  }
 
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("cod");
@@ -79,39 +104,32 @@ export default function PaymentPage() {
   }, []);
 
   useEffect(() => {
-    try {
-      const saved =
-        sessionStorage.getItem(
-          "mangosta-checkout"
-        );
+    if (checkoutData === undefined) return; // not read yet
 
-      if (!saved) {
-        window.location.href =
-          "/checkout";
-
-        return;
-      }
-
-      const parsed =
-        JSON.parse(saved);
-
-      setCheckoutData(parsed);
-
-      const pincode = String(parsed?.customer?.postalCode ?? "");
-      fetch(`/api/delivery/check?pincode=${encodeURIComponent(pincode)}`, { cache: "no-store" })
-        .then((response) => response.json())
-        .then((delivery) => {
-          if (delivery?.enabled && delivery.valid && !delivery.cod) {
-            setCodAvailable(false);
-            setPaymentMethod((current) => (current === "cod" ? "online" : current));
-          }
-        })
-        .catch(() => undefined);
-    } catch {
-      window.location.href =
-        "/checkout";
+    // Nothing from the shipping step (or unreadable): start checkout again.
+    if (!checkoutData) {
+      router.replace("/checkout");
+      return;
     }
-  }, []);
+
+    let cancelled = false;
+    const pincode = String(checkoutData.customer?.postalCode ?? "");
+
+    fetch(`/api/delivery/check?pincode=${encodeURIComponent(pincode)}`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((delivery) => {
+        if (cancelled) return;
+        if (delivery?.enabled && delivery.valid && !delivery.cod) {
+          setCodAvailable(false);
+          setPaymentMethod((current) => (current === "cod" ? "online" : current));
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutData, router]);
 
   /*
    * --------------------------------------------------------------------------
@@ -196,6 +214,12 @@ export default function PaymentPage() {
           .catch(() => ({}));
 
       if (!response.ok) {
+        // Signed out (e.g. the session ended): open sign-in; after it the
+        // customer just presses the button again.
+        if (response.status === 401) {
+          openAuth("signin");
+        }
+
         throw new Error(
           data?.error ||
             "Unable to place your order."
@@ -284,7 +308,7 @@ clearCartAfterOrder();
 
             <h1
               id="order-confirmed-title"
-              className="font-display text-4xl tracking-tight text-bone sm:text-5xl"
+              className="type-title text-bone"
             >
               Thank you.
             </h1>
@@ -336,7 +360,7 @@ clearCartAfterOrder();
     <>
       <Navigation />
 
-      <main className="min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
+      <main className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
 
         <div className="mx-auto max-w-7xl">
 
@@ -348,7 +372,7 @@ clearCartAfterOrder();
               CHECKOUT / PAYMENT
             </p>
 
-            <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
+            <h1 className="type-title text-bone">
               Choose your payment.
             </h1>
 
@@ -629,6 +653,18 @@ clearCartAfterOrder();
                     )}`}
               </button>
 
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-stone">
+                By placing your order, you agree to our{" "}
+                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-bone">
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-bone">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+
               <Link
                 href="/checkout"
                 className="mt-3 block text-center text-xs tracking-[0.12em] text-stone transition-colors hover:text-bone"
@@ -724,21 +760,21 @@ clearCartAfterOrder();
 
                       <div className="text-right">
                         {getProductStrikethroughPrice(line.product) !== null && (
-                          <p className="font-mono text-[10px] text-stone-dark line-through">
+                          <p className="font-body tabular-nums text-[10px] text-stone-dark line-through">
                             {formatPrice(
                               (getProductStrikethroughPrice(line.product) ?? 0) *
                                 line.quantity
                             )}
                           </p>
                         )}
-                        <p className="font-mono text-xs text-bone-dim">
+                        <p className="type-price text-xs text-bone-dim">
                           {formatPrice(
                             getProductSalePrice(line.product) * line.quantity
                           )}
                         </p>
-                        {hasProductDiscount(line.product) && (
-                          <p className="mt-1 text-[10px] tracking-wider text-mango">
-                            {Number(line.product.discountPercent) || 0}% OFF
+                        {getProductSavingsPercent(line.product) !== null && (
+                          <p className="mt-1 inline-block rounded-sm bg-mango/10 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-mango">
+                            Save {getProductSavingsPercent(line.product)}%
                           </p>
                         )}
                       </div>
@@ -770,7 +806,7 @@ clearCartAfterOrder();
 
               {/* PRICE */}
 
-              <div className="flex flex-col gap-3 font-mono text-sm">
+              <div className="flex flex-col gap-3 text-sm tabular-nums">
 
                 <div className="flex justify-between text-stone">
 
@@ -823,7 +859,7 @@ clearCartAfterOrder();
 
                 <div className="hairline my-1" />
 
-                <div className="flex justify-between text-base text-bone">
+                <div className="flex justify-between text-base font-bold text-bone">
 
                   <span>
                     Total

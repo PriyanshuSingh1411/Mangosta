@@ -12,22 +12,27 @@ export default function AdminProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const load = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/admin/products");
-      if (!res.ok) throw new Error("Failed to load products.");
-      setProducts(await res.json());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    load();
+    let cancelled = false;
+
+    fetch("/api/admin/products")
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load products.");
+        const list: Product[] = await res.json();
+        if (cancelled) return;
+        setProducts(list);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Something went wrong.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleDelete = async (id: string, name: string) => {
@@ -50,7 +55,7 @@ export default function AdminProductsPage() {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4 sm:mb-10">
         <div className="min-w-0">
           <p className="label-technical mb-2">CATALOG</p>
-          <h1 className="font-display text-2xl tracking-tight text-bone sm:text-3xl">Products</h1>
+          <h1 className="type-heading text-bone">Products</h1>
         </div>
       <div className="flex flex-wrap gap-3">
   <Link
@@ -116,7 +121,7 @@ export default function AdminProductsPage() {
                 <p className="truncate text-sm text-bone">{product.name}</p>
                 <p className="truncate text-xs text-stone">{product.slug}</p>
                 <p className="mt-1 text-xs text-stone sm:hidden">
-                  <span className="font-mono text-bone-dim">{formatPrice(product.price)}</span>
+                  <span className="type-price text-bone-dim">{formatPrice(product.price)}</span>
                   {" · "}
                   <span className={product.inventory === 0 ? "text-mango" : ""}>
                     {product.inventory === 0 ? "Out of stock" : `${product.inventory} in stock`}
@@ -124,7 +129,7 @@ export default function AdminProductsPage() {
                 </p>
               </div>
               <span className="hidden text-xs text-stone sm:block">{product.category}</span>
-              <span className="hidden font-mono text-sm text-bone-dim sm:block">
+              <span className="hidden type-price text-sm text-bone-dim sm:block">
                 {formatPrice(product.price)}
               </span>
               <span

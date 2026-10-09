@@ -1,21 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  couponCustomerProblem,
+  getCouponCustomerHistory,
   getCoupons,
   validateCoupon,
   validateCheckoutReward,
+  CouponError,
+  type CouponCustomer,
 } from "@/app/lib/dataStore";
+import { getCurrentUser } from "@/app/lib/auth/session";
+
+/** The signed-in customer, for the per-customer coupon rules. */
+async function currentCouponCustomer(): Promise<CouponCustomer | null> {
+  const user = await getCurrentUser().catch(() => null);
+  return user?.email
+    ? { userId: user.id, email: String(user.email).trim().toLowerCase() }
+    : null;
+}
 
 /**
  * GET
  *
  * Returns coupons that are currently available on checkout.
  * Disabled, expired, not-yet-active, and exhausted coupons
- * are excluded.
+ * are excluded, and so are coupons the signed-in customer can't use
+ * (first-order coupons after their first order, per-customer limit
+ * reached). Signed out: only coupons without per-customer rules.
  */
 export async function GET() {
   try {
     const now = new Date();
     const coupons = await getCoupons();
+    const customer = await currentCouponCustomer();
+    const history = customer
+      ? await getCouponCustomerHistory(customer)
+      : null;
 
     const activeCoupons = coupons
       .filter((coupon) => {
@@ -70,6 +89,10 @@ export async function GET() {
           ) ||
           coupon.discountValue <= 0
         ) {
+          return false;
+        }
+
+        if (couponCustomerProblem(coupon, history)) {
           return false;
         }
 
@@ -224,13 +247,15 @@ export async function POST(
      * - start date
      * - expiry date
      * - usage limit
+     * - per-customer rules (uses per customer, first order only)
      * - minimum order value
      * - discount availability
      */
     const result =
       await validateCoupon(
         code,
-        subtotal
+        subtotal,
+        await currentCouponCustomer()
       );
 
     const coupon = result.coupon;
@@ -281,12 +306,17 @@ export async function POST(
       error
     );
 
+    if (!(error instanceof CouponError)) {
+      // Not a coupon rule (e.g. the database): details stay in the log.
+      return NextResponse.json(
+        { error: "We couldn't check this coupon right now. Please try again in a moment." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Invalid coupon code.",
+        error: error.message,
       },
       {
         status: 400,

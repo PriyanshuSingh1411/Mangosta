@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProducts } from "@/app/lib/dataStore";
+import { toPublicProduct } from "@/app/data/productTypes";
 
 /**
  * GET /api/products
@@ -11,14 +12,14 @@ import { getProducts } from "@/app/lib/dataStore";
  * - All product data (name, description, images, etc.)
  * - Server-calculated sale prices (never trust client-side prices)
  * - Discount percentages and compareAtPrices
- * - Current inventory levels
+ * - Stock levels capped at PUBLIC_STOCK_CAP (exact stock stays private)
  */
 export async function GET() {
   try {
     const products = await getProducts();
 
     // Validate all product data before returning
-    const validatedProducts = products.map(product => ({
+    const validatedProducts = products.map(toPublicProduct).map(product => ({
       ...product,
       // Ensure numeric fields are properly typed
       price: Math.max(0, Number(product.price) || 0),

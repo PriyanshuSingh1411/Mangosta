@@ -8,7 +8,7 @@ import {
 
 type Context = { params: Promise<{ key: string }> };
 
-/** GET /api/admin/store-config/{sizeGuide|delivery|returnsPolicy|emailAutomation} */
+/** GET /api/admin/store-config/{sizeGuide|delivery|returnsPolicy|emailAutomation|businessDetails} */
 export async function GET(_req: NextRequest, { params }: Context) {
   if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

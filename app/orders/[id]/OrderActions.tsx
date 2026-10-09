@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getProductSizes } from "@/app/data/productTypes";
+import { getProductSizes, MAX_PER_SIZE_PER_ORDER } from "@/app/data/productTypes";
 import type { Product } from "@/app/data/productTypes";
 import {
   CANCEL_REASONS,
@@ -85,11 +85,18 @@ function BuyAgain({ order }: { order: ActionOrder }) {
         const lineId = `${product.id}-${line.size}-${line.color}`;
         const bag = useCartStore.getState().lines;
         const inBag = bag.find((item) => item.lineId === lineId)?.quantity ?? 0;
-        const room = maxAllowedForLine(bag, product, line.size, line.color, lineId) - inBag;
+        const allowed = maxAllowedForLine(bag, product, line.size, line.color, lineId);
+        const room = allowed - inBag;
         const quantity = Math.min(line.quantity, room);
 
         if (quantity <= 0) {
-          notes.push(inBag > 0 ? `${label} is already in your bag (no more in stock).` : `${label} is sold out.`);
+          notes.push(
+            inBag <= 0
+              ? `${label} is sold out.`
+              : allowed >= MAX_PER_SIZE_PER_ORDER
+                ? `${label} is already in your bag (up to ${MAX_PER_SIZE_PER_ORDER} of each size per order).`
+                : `${label} is already in your bag (no more in stock).`
+          );
           continue;
         }
 

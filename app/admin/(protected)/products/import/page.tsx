@@ -59,7 +59,7 @@ export default function ProductImportPage() {
             CATALOG / BULK IMPORT
           </p>
 
-          <h1 className="font-display text-2xl tracking-tight text-bone sm:text-3xl">
+          <h1 className="type-heading text-bone">
             Import Products
           </h1>
 

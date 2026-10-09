@@ -3,6 +3,7 @@ import "server-only";
 import { getStoreDb } from "@/app/lib/db";
 import type { ProductCategory } from "@/app/data/productTypes";
 import {
+  DEFAULT_BUSINESS_DETAILS,
   DEFAULT_DELIVERY,
   DEFAULT_EMAIL_AUTOMATION,
   DEFAULT_RETURNS_POLICY,
@@ -10,6 +11,7 @@ import {
   PRODUCT_CATEGORIES,
 } from "@/app/data/storeTypes";
 import type {
+  BusinessDetails,
   DeliveryConfig,
   EmailAutomationConfig,
   PincodeRule,
@@ -26,13 +28,15 @@ export type StoreConfigKey =
   | "sizeGuide"
   | "delivery"
   | "returnsPolicy"
-  | "emailAutomation";
+  | "emailAutomation"
+  | "businessDetails";
 
 type StoreConfigMap = {
   sizeGuide: SizeGuideConfig;
   delivery: DeliveryConfig;
   returnsPolicy: ReturnsPolicy;
   emailAutomation: EmailAutomationConfig;
+  businessDetails: BusinessDetails;
 };
 
 export const STORE_CONFIG_KEYS: StoreConfigKey[] = [
@@ -40,6 +44,7 @@ export const STORE_CONFIG_KEYS: StoreConfigKey[] = [
   "delivery",
   "returnsPolicy",
   "emailAutomation",
+  "businessDetails",
 ];
 
 // ------------------------------------------------------------------
@@ -181,11 +186,40 @@ export function normalizeEmailAutomation(value: unknown): EmailAutomationConfig 
   };
 }
 
+/** Plain one-line text: trimmed, no control characters. */
+function line(value: unknown, fallback: string, max: number): string {
+  return text(value, fallback, max).replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+}
+
+export function normalizeBusinessDetails(value: unknown): BusinessDetails {
+  const source = isRecord(value) ? value : {};
+  const d = DEFAULT_BUSINESS_DETAILS;
+  const email = (input: unknown, fallback: string) => {
+    const address = line(input, fallback, 200).toLowerCase();
+    return address === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) ? address : fallback;
+  };
+
+  return {
+    legalName: line(source.legalName, d.legalName, 150),
+    address: text(source.address, d.address, 500).replace(/\r\n?/g, "\n").trim(),
+    email: email(source.email, d.email) || d.email,
+    phone: line(source.phone, d.phone, 40),
+    supportHours: line(source.supportHours, d.supportHours, 100),
+    gstin: line(source.gstin, d.gstin, 20).toUpperCase(),
+    grievanceOfficerName: line(source.grievanceOfficerName, d.grievanceOfficerName, 100),
+    grievanceOfficerDesignation: line(source.grievanceOfficerDesignation, d.grievanceOfficerDesignation, 100),
+    grievanceOfficerEmail: email(source.grievanceOfficerEmail, d.grievanceOfficerEmail),
+    grievanceOfficerPhone: line(source.grievanceOfficerPhone, d.grievanceOfficerPhone, 40),
+    jurisdictionCity: line(source.jurisdictionCity, d.jurisdictionCity, 60),
+  };
+}
+
 const NORMALIZERS: { [K in StoreConfigKey]: (value: unknown) => StoreConfigMap[K] } = {
   sizeGuide: normalizeSizeGuide,
   delivery: normalizeDelivery,
   returnsPolicy: normalizeReturnsPolicy,
   emailAutomation: normalizeEmailAutomation,
+  businessDetails: normalizeBusinessDetails,
 };
 
 export function isStoreConfigKey(value: unknown): value is StoreConfigKey {

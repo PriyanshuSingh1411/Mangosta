@@ -20,7 +20,7 @@ export async function PATCH(
   const status = STATUSES.includes(body?.status) ? (body.status as ReturnRequestStatus) : undefined;
 
   try {
-    const { request, restockedProductIds } = await updateReturnRequest({
+    const { request, restockedProductIds, stockChange } = await updateReturnRequest({
       id,
       status,
       adminNote: typeof body?.adminNote === "string" ? body.adminNote : undefined,
@@ -29,7 +29,7 @@ export async function PATCH(
 
     const alerts = await notifyBackInStock(restockedProductIds).catch(() => null);
 
-    return NextResponse.json({ request, alertsSent: alerts?.sent ?? 0 });
+    return NextResponse.json({ request, stockChange, alertsSent: alerts?.sent ?? 0 });
   } catch (error) {
     if (error instanceof ReturnRequestError) {
       return NextResponse.json({ error: error.message }, { status: 400 });

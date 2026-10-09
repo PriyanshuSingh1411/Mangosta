@@ -11,6 +11,10 @@ import {
   getVariantStock,
   hasProductDiscount,
   getProductStrikethroughPrice,
+  getProductSavingsPercent,
+  LOW_STOCK_THRESHOLD,
+  MAX_PER_SIZE_PER_ORDER,
+  stockLabel,
 } from "@/app/data/productTypes";
 import type { ReviewSummary, ReturnsPolicy } from "@/app/data/storeTypes";
 import { maxAllowedForLine, useCartStore } from "@/app/store/useCartStore";
@@ -26,8 +30,6 @@ import StarRating from "@/app/components/StarRating";
 import ProductReviews from "./ProductReviews";
 import { useToast } from "@/app/components/ToastProvider";
 
-/** Shown as "Only N left" when a size/colour is at or below this. */
-const LOW_STOCK = 3;
 
 export default function ProductDetail({
   product,
@@ -53,17 +55,23 @@ export default function ProductDetail({
 
   const imageRef = useRef<HTMLDivElement>(null);
   const addToBag = useCartStore((s) => s.addToBag);
+  const cartLines = useCartStore((s) => s.lines);
   const { user, loading: authLoading, openAuth } = useAuth();
   const openBag = useCartStore((s) => s.openBag);
   const { toast } = useToast();
 
   const colorName = selectedColor?.name ?? "";
+  const selectedLineId = selectedSize ? `${product.id}-${selectedSize}-${colorName}` : null;
+  const isSelectedVariantInBag = Boolean(
+    selectedLineId && cartLines.some((line) => line.lineId === selectedLineId && line.quantity > 0)
+  );
   const sizes = getProductSizes(product);
   const images = getColorImages(product, colorName);
   const activeImage = images[Math.min(activeImageIndex, Math.max(0, images.length - 1))];
   const salePrice = getProductSalePrice(product);
   const hasDiscount = hasProductDiscount(product);
-  const discountPercent = Number(product.discountPercent) || 0;
+  // "SAVE x%" against the crossed-out price shown next to it.
+  const discountPercent = getProductSavingsPercent(product) ?? 0;
   const activeImageFailed = activeImage ? failedImages.has(activeImage) : true;
 
   const selectedStock = selectedSize ? getVariantStock(product, colorName, selectedSize) : 0;
@@ -142,9 +150,11 @@ export default function ProductDetail({
       setStockError(
         allowed - inBag > 0
           ? `Only ${allowed - inBag} more can be added — ${inBag} already in your bag.`
-          : allowed > 0
-            ? `All ${allowed} available are already in your bag.`
-            : "This size just sold out."
+          : allowed >= MAX_PER_SIZE_PER_ORDER
+            ? `You can have up to ${MAX_PER_SIZE_PER_ORDER} of each size in one order.`
+            : allowed > 0
+              ? `All ${allowed} available are already in your bag.`
+              : "This size just sold out."
       );
       return;
     }
@@ -163,6 +173,11 @@ export default function ProductDetail({
   };
 
   const handleAddToBag = () => {
+    if (isSelectedVariantInBag) {
+      openBag();
+      return;
+    }
+
     if (!selectedSize) {
       setSizeError(true);
       return;
@@ -263,7 +278,7 @@ export default function ProductDetail({
         {/* Phones: the name gets the full width (Share / ♡ go just below)
             so words never break in the middle. 640px+: side by side. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <h1 className="min-w-0 font-display text-[clamp(1.75rem,8.5vw,2.25rem)] leading-[0.95] tracking-tight text-bone sm:text-5xl lg:text-4xl xl:text-5xl">
+          <h1 className="min-w-0 type-title text-bone lg:text-[2.25rem] xl:text-[3rem]">
             {product.name}
           </h1>
           <div className="flex shrink-0 items-center gap-2">
@@ -295,21 +310,21 @@ export default function ProductDetail({
         <div className="mt-4 flex flex-wrap items-center gap-3">
           {getProductStrikethroughPrice(product) && getProductStrikethroughPrice(product) !== salePrice ? (
             <>
-              <span className="font-mono text-sm text-stone-dark line-through">
+              <span className="font-body tabular-nums text-sm text-stone-dark line-through">
                 {formatPrice(getProductStrikethroughPrice(product) || 0)}
               </span>
-              <span className={`font-mono text-xl ${hasDiscount ? "text-mango font-semibold" : "text-bone-dim"}`}>
+              <span className={`type-price text-xl ${hasDiscount ? "text-mango font-semibold" : "text-bone-dim"}`}>
                 {formatPrice(salePrice)}
               </span>
-              {hasDiscount && (
-                <span className="text-xs font-medium tracking-wider text-mango bg-mango/10 px-2 py-1 rounded">
-                  {discountPercent}% OFF
+              {hasDiscount && discountPercent > 0 && (
+                <span className="rounded-sm bg-mango/10 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-mango">
+                  Save {discountPercent}%
                 </span>
               )}
             </>
           ) : (
             <>
-              <span className="font-mono text-xl text-bone-dim">
+              <span className="type-price text-xl text-bone-dim">
                 {formatPrice(salePrice)}
               </span>
             </>
@@ -380,8 +395,12 @@ export default function ProductDetail({
             })}
           </div>
 
-          {selectedSize && !selectedSoldOut && selectedStock <= LOW_STOCK && (
-            <p className="mt-3 text-xs font-medium text-mango">Only {selectedStock} left in this size</p>
+          {selectedSize && !selectedSoldOut && (
+            selectedStock <= LOW_STOCK_THRESHOLD ? (
+              <p className="mt-3 text-xs font-medium text-mango">{stockLabel(selectedStock).text} in this size</p>
+            ) : (
+              <p className="mt-3 text-xs text-stone">In stock</p>
+            )
           )}
         </div>
 
@@ -425,7 +444,7 @@ export default function ProductDetail({
               disabled={productSoldOut}
               className="relative overflow-hidden bg-bone py-4 text-center text-xs font-medium tracking-[0.2em] text-void transition-colors hover:bg-mango disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-bone"
             >
-              {productSoldOut ? "SOLD OUT" : justAdded ? "ADDED TO BAG ✓" : "ADD TO BAG"}
+              {productSoldOut ? "SOLD OUT" : isSelectedVariantInBag || justAdded ? "GO TO BAG" : "ADD TO BAG"}
             </button>
             {stockError && (
               <p role="alert" className="mt-3 text-xs text-mango">{stockError}</p>
@@ -502,6 +521,16 @@ export default function ProductDetail({
           </details>
         )}
       </div>
+
+      {/* MOBILE STICKY ADD TO BAG */}
+      {!selectedSoldOut && (
+        <div className="fixed inset-x-0 bottom-0 z-[9980] border-t border-line bg-void/95 p-3 backdrop-blur-xl lg:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+          <button type="button" onClick={handleAddToBag} disabled={productSoldOut} className="flex w-full items-center justify-between bg-bone px-4 py-4 text-xs font-medium tracking-[0.18em] text-void transition-colors hover:bg-mango disabled:opacity-40">
+            <span>{productSoldOut ? "SOLD OUT" : isSelectedVariantInBag || justAdded ? "GO TO BAG" : "ADD TO BAG"}</span>
+            <span className="type-price tracking-normal">{formatPrice(salePrice)}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

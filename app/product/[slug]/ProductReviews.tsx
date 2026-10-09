@@ -98,7 +98,7 @@ export default function ProductReviews({
           {summary.count > 0 ? (
             <>
               <div className="flex items-end gap-3">
-                <span className="font-display text-5xl leading-none text-bone">{summary.average.toFixed(1)}</span>
+                <span className="type-title leading-none text-bone">{summary.average.toFixed(1)}</span>
                 <div className="pb-1">
                   <StarRating value={summary.average} className="h-4 w-4" />
                   <p className="mt-1 text-xs text-stone">

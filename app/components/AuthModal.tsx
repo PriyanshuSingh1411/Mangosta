@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AuthUser } from "./AuthProvider";
 
@@ -32,18 +33,21 @@ export default function AuthModal({
   const [message, setMessage] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
 
-  useEffect(() => {
-    if (!open) {
-      return;
+  // Start fresh each time the window opens or switches between sign in and
+  // sign up (adjusted while rendering, so the old step never flashes).
+  const formKey = open ? mode : "closed";
+  const [shownFormKey, setShownFormKey] = useState(formKey);
+  if (formKey !== shownFormKey) {
+    setShownFormKey(formKey);
+    if (open) {
+      setStep("email");
+      setOtp("");
+      setMobile("");
+      setError(null);
+      setMessage(null);
+      setCooldown(0);
     }
-
-    setStep("email");
-    setOtp("");
-    setMobile("");
-    setError(null);
-    setMessage(null);
-    setCooldown(0);
-  }, [open, mode]);
+  }
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -115,7 +119,7 @@ export default function AuthModal({
 
       setStep("otp");
       setOtp("");
-      setMessage("Verification code sent to your email.");
+      setMessage(data?.message || "Check your email for the 6-digit code.");
       setCooldown(60);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to send OTP.");
@@ -204,7 +208,7 @@ export default function AuthModal({
                 MANGOSTA / ACCOUNT
               </p>
 
-              <h2 className="font-display text-3xl tracking-tight text-bone">
+              <h2 className="type-heading text-bone">
                 {mode === "signup" ? "CREATE ACCOUNT" : "WELCOME BACK"}
               </h2>
 
@@ -290,6 +294,20 @@ export default function AuthModal({
                   >
                     {loading ? "SENDING…" : "SEND OTP"}
                   </button>
+
+                  {mode === "signup" && (
+                    <p className="text-[11px] leading-relaxed text-stone">
+                      By creating an account, you agree to our{" "}
+                      <Link href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-bone">
+                        Terms
+                      </Link>{" "}
+                      and{" "}
+                      <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-bone">
+                        Privacy Policy
+                      </Link>
+                      .
+                    </p>
+                  )}
                 </form>
               ) : (
                 <form onSubmit={verifyOtp} className="mt-7 flex flex-col gap-4">

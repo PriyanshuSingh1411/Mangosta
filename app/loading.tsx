@@ -1,2 +1,22 @@
 import { Skeleton } from "./components/Skeleton";
-export default function Loading() { return <main className="min-h-screen bg-void px-5 pb-24 pt-32 sm:px-8 sm:pt-40"><div className="mx-auto max-w-7xl"><Skeleton className="h-3 w-24" /><Skeleton className="mt-5 h-12 w-72 sm:h-16" /><div className="mt-10"><div className="grid grid-cols-2 gap-4 sm:grid-cols-4">{Array.from({length:8}).map((_,i)=><div key={i}><Skeleton className="aspect-[3/4]"/><Skeleton className="mt-4 h-4 w-3/4"/><Skeleton className="mt-2 h-3 w-1/3"/></div>)}</div></div></div></main>; }
+export default function Loading() {
+  return (
+    <main className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
+      <div className="mx-auto max-w-7xl">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="mt-5 h-12 w-72 sm:h-16" />
+        <div className="mt-10">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i}>
+                <Skeleton className="aspect-[3/4]" />
+                <Skeleton className="mt-4 h-4 w-3/4" />
+                <Skeleton className="mt-2 h-3 w-1/3" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

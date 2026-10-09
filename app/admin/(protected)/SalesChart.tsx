@@ -154,7 +154,7 @@ export default function SalesChart({ days }: { days: SalesDay[] }) {
                 <tr key={day.date} className="border-b border-line/60">
                   <td className="py-1.5 font-mono">{day.date}</td>
                   <td className="py-1.5 text-right font-mono">{day.orders}</td>
-                  <td className="py-1.5 text-right font-mono text-bone-dim">{formatPrice(day.revenue)}</td>
+                  <td className="py-1.5 text-right type-price text-bone-dim">{formatPrice(day.revenue)}</td>
                 </tr>
               ))}
             </tbody>

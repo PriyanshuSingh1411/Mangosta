@@ -113,7 +113,7 @@ export default async function AdminDashboardPage({
     <div>
       <p className="label-technical mb-2">OVERVIEW</p>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4 sm:mb-10">
-        <h1 className="font-display text-2xl tracking-tight text-bone sm:text-3xl">Dashboard</h1>
+        <h1 className="type-heading text-bone">Dashboard</h1>
 
         <div className="flex flex-wrap items-center gap-2">
           {RANGES.map((option) => (
@@ -264,7 +264,7 @@ export default async function AdminDashboardPage({
               </div>
               <div className="flex shrink-0 items-center gap-3 sm:gap-4">
                 <StatusPill status={order.status} />
-                <span className="font-mono text-bone-dim">{formatPrice(order.total)}</span>
+                <span className="type-price text-bone-dim">{formatPrice(order.total)}</span>
               </div>
             </Link>
           ))}

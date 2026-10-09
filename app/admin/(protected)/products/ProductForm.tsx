@@ -759,6 +759,7 @@ export default function ProductForm({
                     key={`${url}-${index}`}
                     className="flex items-center gap-3 border border-line-strong p-2"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- admin preview of any address the admin enters */}
                     <img
                       src={url}
                       alt={`Product image ${
@@ -923,11 +924,11 @@ export default function ProductForm({
             <p className="label-technical text-mango">SALE PRICE PREVIEW</p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               {previewWasPrice !== null && (
-                <span className="font-mono text-sm text-stone-dark line-through">
+                <span className="font-body tabular-nums text-sm text-stone-dark line-through">
                   {formatPrice(previewWasPrice)}
                 </span>
               )}
-              <span className="font-mono text-lg text-bone">
+              <span className="type-price text-lg text-bone">
                 {formatPrice(previewSalePrice)}
               </span>
               <span className="text-xs font-medium tracking-wider text-mango">

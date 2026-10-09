@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { RETURN_STATUS_LABELS } from "@/app/data/storeTypes";
+import { formatPrice } from "@/app/data/productTypes";
 import type {
   ReturnRequest,
   ReturnRequestStatus,
@@ -60,7 +61,7 @@ export default function AdminReturnsPage() {
   return (
     <div className="max-w-5xl">
       <p className="label-technical mb-2">SALES</p>
-      <h1 className="mb-8 font-display text-2xl tracking-tight text-bone sm:text-3xl">Returns &amp; Exchanges</h1>
+      <h1 className="mb-8 type-heading text-bone">Returns &amp; Exchanges</h1>
 
       <div className="mb-6 flex flex-wrap gap-1.5">
         {FILTERS.map((option) => (
@@ -132,10 +133,15 @@ function ReturnCard({
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Failed to update.");
       onUpdated(data.request);
+      const alerts = data.alertsSent ? ` (${data.alertsSent} back-in-stock email(s) sent)` : "";
       setMessage(
-        status === "received" && restock
-          ? `Saved — items added back to stock${data.alertsSent ? ` (${data.alertsSent} back-in-stock email(s) sent)` : ""}.`
-          : "Saved."
+        data.stockChange === "replacement-taken"
+          ? "Saved — the replacement was taken out of stock."
+          : data.stockChange === "replacement-returned"
+            ? `Saved — the reserved replacement was put back in stock${alerts}.`
+            : data.stockChange === "items-restocked"
+              ? `Saved — items added back to stock${alerts}.`
+              : "Saved."
       );
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to update.");
@@ -165,6 +171,7 @@ function ReturnCard({
         <span className="border border-line-strong px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-bone-dim">
           {RETURN_STATUS_LABELS[request.status]}
           {request.restocked ? " · restocked" : ""}
+          {isExchange && request.exchangeStockTaken ? " · replacement reserved" : ""}
         </span>
       </div>
 
@@ -184,6 +191,46 @@ function ReturnCard({
             </li>
           ))}
         </ul>
+        {/* Refunds marked done before amounts were saved show no figure. */}
+        {!isExchange &&
+          request.status !== "rejected" &&
+          request.refund &&
+          !(request.status === "completed" && typeof request.refundedAmount !== "number") && (
+          <div className="mb-3 border border-line-strong px-3 py-3 text-xs">
+            <div className="flex items-center justify-between gap-3">
+              <span className="label-technical">
+                {request.status === "completed" ? "REFUNDED" : "REFUND DUE"}
+              </span>
+              <span className="font-mono text-sm text-bone">
+                {formatPrice(
+                  request.status === "completed" && typeof request.refundedAmount === "number"
+                    ? request.refundedAmount
+                    : request.refund.total
+                )}
+              </span>
+            </div>
+            <ul className="mt-2 flex flex-col gap-1 text-stone">
+              {request.refund.items.map((item) => (
+                <li key={item.lineId} className="flex justify-between gap-3">
+                  <span>
+                    {item.productName} × {item.quantity}
+                  </span>
+                  <span className="font-mono">{formatPrice(item.amount)}</span>
+                </li>
+              ))}
+              {request.refund.shipping > 0 && (
+                <li className="flex justify-between gap-3">
+                  <span>Shipping (whole order returned)</span>
+                  <span className="font-mono">{formatPrice(request.refund.shipping)}</span>
+                </li>
+              )}
+            </ul>
+            <p className="mt-2 text-[11px] leading-relaxed text-stone-dark">
+              What the customer actually paid for these items: sale price minus their share of the
+              order&apos;s coupon / reward discount. Shipping only when the whole order comes back.
+            </p>
+          </div>
+        )}
         <p className="text-xs text-stone">
           Reason: <span className="text-bone-dim">{request.reason}</span>
         </p>
@@ -208,7 +255,7 @@ function ReturnCard({
           {request.status === "requested" && (
             <>
               <button type="button" disabled={busy} onClick={() => void act("approved")} className={`${button} bg-bone text-void hover:bg-mango`}>
-                Approve
+                {isExchange ? "Approve & reserve replacement" : "Approve"}
               </button>
               <button type="button" disabled={busy} onClick={() => void act("rejected")} className={`${button} border border-line-strong text-stone hover:border-bone hover:text-bone`}>
                 Reject
@@ -236,7 +283,9 @@ function ReturnCard({
           )}
           {request.status === "received" && (
             <button type="button" disabled={busy} onClick={() => void act("completed")} className={`${button} bg-bone text-void hover:bg-mango`}>
-              {isExchange ? "Mark exchange sent" : "Mark refunded"}
+              {isExchange
+                ? "Mark exchange sent"
+                : `Mark refunded${request.refund ? ` (${formatPrice(request.refund.total)})` : ""}`}
             </button>
           )}
           <button

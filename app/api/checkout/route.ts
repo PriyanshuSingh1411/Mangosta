@@ -3,12 +3,16 @@ import { NextRequest, NextResponse, after } from "next/server";
 import {
   calculateShipping,
   CouponUnavailableError,
+  AccountClosedError,
   getCheckoutSettings,
   getProduct,
   InsufficientInventoryError,
+  OrderInProgressError,
   placeOrder,
+  UnpaidOrderLimitError,
   validateCoupon,
   validateCheckoutReward,
+  CouponError,
 } from "@/app/lib/dataStore";
 
 import type {
@@ -20,12 +24,12 @@ import {
   getLineImage,
   getProductSalePrice,
   getProductSizes,
+  MAX_PER_SIZE_PER_ORDER,
 } from "@/app/data/productTypes";
 import { getStoreConfig } from "@/app/lib/storeConfig";
 import { checkPincode } from "@/app/data/storeTypes";
 import { sendOrderPlacedEmails } from "@/app/lib/orderEmails";
-import { getCurrentUser } from "@/app/lib/auth/session";
-import { isValidEmail } from "@/app/lib/auth/otp";
+import { getCurrentUser, type AuthUser } from "@/app/lib/auth/session";
 import {
   getEngagementSessionId,
   trackServerEngagement,
@@ -85,6 +89,47 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    /* ---------------------------------------------------------------------- */
+    /* Signed-in customer only                                                */
+    /*                                                                        */
+    /* Every order belongs to an account. The order email is ALWAYS the       */
+    /* account's own (verified by OTP at sign-in) - never the email typed in  */
+    /* the form - so nobody can place orders in someone else's name.          */
+    /* ---------------------------------------------------------------------- */
+
+    let signedInUser: AuthUser | null;
+
+    try {
+      signedInUser = await getCurrentUser();
+    } catch (error) {
+      console.error("Checkout POST: could not check the sign-in.", error);
+
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't check your sign-in right now. Please try again in a moment.",
+        },
+        {
+          status: 503,
+        }
+      );
+    }
+
+    if (!signedInUser?.id || !signedInUser.email) {
+      return NextResponse.json(
+        {
+          error: "Please sign in to place your order.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const accountEmail = String(signedInUser.email)
+      .trim()
+      .toLowerCase();
+
     const body = await req.json().catch(() => null);
 
     /* ---------------------------------------------------------------------- */
@@ -110,8 +155,8 @@ export async function POST(req: NextRequest) {
     /* Customer                                                               */
     /* ---------------------------------------------------------------------- */
 
+    // customer.email from the form is ignored on purpose (see above).
     const {
-      email,
       firstName,
       lastName,
       mobile,
@@ -122,7 +167,6 @@ export async function POST(req: NextRequest) {
     } = body.customer || {};
 
     if (
-      !email ||
       !firstName ||
       !lastName ||
       !mobile ||
@@ -135,17 +179,6 @@ export async function POST(req: NextRequest) {
         {
           error:
             "All contact and shipping fields are required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (!isValidEmail(String(email).trim())) {
-      return NextResponse.json(
-        {
-          error: "Please enter a valid email address.",
         },
         {
           status: 400,
@@ -206,6 +239,9 @@ export async function POST(req: NextRequest) {
 
     const inputLines = body.lines as CheckoutLineInput[];
     const lines: OrderLine[] = [];
+    // Every order line gets its own id (returns, reviews and refunds refer
+    // to lines by id), even if the browser sends duplicates or none.
+    const usedLineIds = new Set<string>();
 
     for (const line of inputLines) {
       const product = await getProduct(String(line.productId));
@@ -252,8 +288,15 @@ export async function POST(req: NextRequest) {
       // Stock is NOT checked here. placeOrder() below checks and reserves
       // stock atomically, in the same transaction that saves the order.
 
+      const requestedLineId = String(line.lineId ?? "").trim().slice(0, 120) || product.id;
+      let lineId = requestedLineId;
+      for (let n = 2; usedLineIds.has(lineId); n++) {
+        lineId = `${requestedLineId}-${n}`;
+      }
+      usedLineIds.add(lineId);
+
       lines.push({
-        lineId: String(line.lineId),
+        lineId,
         productId: product.id,
         productName: product.name,
         slug: product.slug,
@@ -268,6 +311,26 @@ export async function POST(req: NextRequest) {
         discountPercent: Number(product.discountPercent) || 0,
         compareAtPrice: product.compareAtPrice,
       });
+    }
+
+    // At most MAX_PER_SIZE_PER_ORDER of one size & colour per order (the
+    // bag allows the same). This also means a stock error can never reveal
+    // more than the storefront shows.
+    const unitsPerVariant = new Map<string, { name: string; units: number }>();
+    for (const line of lines) {
+      const key = `${line.productId}|${line.color}|${line.size}`;
+      const entry = unitsPerVariant.get(key) ?? { name: line.productName, units: 0 };
+      entry.units += line.quantity;
+      unitsPerVariant.set(key, entry);
+    }
+    const overLimit = [...unitsPerVariant.values()].find((entry) => entry.units > MAX_PER_SIZE_PER_ORDER);
+    if (overLimit) {
+      return NextResponse.json(
+        {
+          error: `You can buy up to ${MAX_PER_SIZE_PER_ORDER} of each size of "${overLimit.name}" per order. Please lower the quantity in your bag.`,
+        },
+        { status: 400 }
+      );
     }
 
     /* ---------------------------------------------------------------------- */
@@ -314,18 +377,24 @@ export async function POST(req: NextRequest) {
         const result =
           await validateCoupon(
             requestedCouponCode,
-            subtotal
+            subtotal,
+            { userId: signedInUser.id, email: accountEmail }
           ).catch((error) => ({
             error,
           }));
 
         if ("error" in result) {
+          if (!(result.error instanceof CouponError)) {
+            console.error("Checkout coupon check failed:", result.error);
+            return NextResponse.json(
+              { error: "We couldn't check your coupon right now. Please try again in a moment." },
+              { status: 500 }
+            );
+          }
+
           return NextResponse.json(
             {
-              error:
-                result.error instanceof Error
-                  ? result.error.message
-                  : "Invalid coupon code.",
+              error: result.error.message,
             },
             {
               status: 400,
@@ -381,24 +450,20 @@ export async function POST(req: NextRequest) {
     /* ---------------------------------------------------------------------- */
 
     /* ---------------------------------------------------------------------- */
-    /* Analytics link: the signed-in account (if any) and the browser          */
-    /* engagement session, so admin User analytics can attribute the order.   */
-    /* Never blocks checkout.                                                 */
+    /* Analytics link: the browser engagement session, so admin User          */
+    /* analytics can attribute the order. Never blocks checkout.              */
     /* ---------------------------------------------------------------------- */
 
-    const signedInUser = await getCurrentUser().catch(() => null);
     const engagementSessionId = await getEngagementSessionId().catch(
       () => ""
     );
 
     const orderData: NewOrderInput = {
-      ...(signedInUser?.id ? { userId: signedInUser.id } : {}),
+      userId: signedInUser.id,
       ...(engagementSessionId ? { engagementSessionId } : {}),
 
       customer: {
-        email: String(email)
-          .trim()
-          .toLowerCase(),
+        email: accountEmail,
 
         firstName: String(firstName)
           .trim(),
@@ -455,11 +520,37 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      if (error instanceof AccountClosedError) {
+        return NextResponse.json({ error: error.message }, { status: 401 });
+      }
+
       if (error instanceof CouponUnavailableError) {
         return NextResponse.json(
           {
             error: error.message,
             couponCode,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Already MAX_OPEN_UNPAID_ORDERS unpaid orders waiting to ship.
+      if (error instanceof UnpaidOrderLimitError) {
+        return NextResponse.json(
+          {
+            error: error.message,
+            limit: error.limit,
+          },
+          { status: 429 }
+        );
+      }
+
+      // Only without MongoDB transactions: another order of this account
+      // was still being placed. Nothing changed; the customer can retry.
+      if (error instanceof OrderInProgressError) {
+        return NextResponse.json(
+          {
+            error: error.message,
           },
           { status: 409 }
         );
@@ -475,7 +566,7 @@ export async function POST(req: NextRequest) {
     // (the browser no longer sends it, so it can't be lost or doubled).
     await trackServerEngagement({
       event: "purchase",
-      userId: signedInUser?.id,
+      userId: signedInUser.id,
       path: "/checkout/payment",
       metadata: {
         orderId: order.id,
@@ -528,12 +619,10 @@ export async function POST(req: NextRequest) {
       error
     );
 
+    // The details are in the server log; the customer gets a plain message.
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to place order.",
+        error: "We couldn't place your order right now. Please try again in a moment.",
       },
       {
         status: 500,

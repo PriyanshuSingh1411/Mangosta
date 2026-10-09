@@ -1,292 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import nodemailer from "nodemailer";
 
 import { getSettings } from "@/app/lib/dataStore";
-import { addSubscriber } from "@/app/lib/newsletterStore";
+import { activateSubscriber, requestSubscription } from "@/app/lib/newsletterStore";
 import { isValidEmail } from "@/app/lib/auth/otp";
+import { getCurrentUser } from "@/app/lib/auth/session";
+import { clearMarketingOptOut } from "@/app/lib/emailPreferences";
+import {
+  sendNewsletterConfirmEmail,
+  sendNewsletterSignupAlert,
+  sendNewsletterWelcome,
+} from "@/app/lib/newsletterEmails";
+import {
+  consumeRateLimits,
+  describeWait,
+  getClientIp,
+} from "@/app/lib/rateLimit";
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+const HOUR_MS = 60 * 60 * 1000;
 
-function textToHtml(value: string) {
-  return value
-    .split(/\n\s*\n/)
-    .map((paragraph) => {
-      const text = paragraph
-        .split("\n")
-        .map((line) => escapeHtml(line))
-        .join("<br />");
-
-      return `<p style="margin:0 0 20px;">${text}</p>`;
-    })
-    .join("");
-}
-
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT ?? 465);
-  const user = process.env.SMTP_USER;
-  const password = process.env.SMTP_PASSWORD;
-
-  if (!host || !user || !password) {
-    throw new Error(
-      "SMTP configuration is missing."
-    );
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: process.env.SMTP_SECURE !== "false",
-    auth: {
-      user,
-      pass: password,
-    },
-  });
-}
-
-function getWelcomeEmailHtml(
-  email: string,
-  settings: Awaited<ReturnType<typeof getSettings>>
-) {
-  const buttonUrl = settings.newsletterButtonUrl || "/";
-
-  const buttonHref = buttonUrl.startsWith("http")
-    ? buttonUrl
-    : `${process.env.NEXT_PUBLIC_SITE_URL || ""}${buttonUrl}`;
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
-  <title>${escapeHtml(settings.newsletterSubject)}</title>
-</head>
-
-<body
-  style="
-    margin:0;
-    padding:0;
-    background:#090909;
-    color:#f4f0e8;
-    font-family:Arial, Helvetica, sans-serif;
-  "
->
-  <div
-    style="
-      width:100%;
-      background:#090909;
-      padding:40px 20px;
-      box-sizing:border-box;
-    "
-  >
-    <div
-      style="
-        max-width:640px;
-        margin:0 auto;
-        background:#111111;
-        border:1px solid #292929;
-      "
-    >
-
-      <!-- HEADER -->
-
-      <div
-        style="
-          padding:32px;
-          border-bottom:1px solid #292929;
-        "
-      >
-        <div
-          style="
-            font-size:28px;
-            font-weight:800;
-            letter-spacing:0.18em;
-            color:#ffffff;
-          "
-        >
-          MANGOSTA
-        </div>
-      </div>
-
-      <!-- CONTENT -->
-
-      <div style="padding:40px 32px;">
-
-        <div
-          style="
-            font-size:11px;
-            letter-spacing:0.18em;
-            color:#999999;
-            margin-bottom:20px;
-          "
-        >
-          WELCOME
-        </div>
-
-        <h1
-          style="
-            margin:0 0 24px;
-            font-size:34px;
-            line-height:1.05;
-            font-weight:800;
-            letter-spacing:-0.02em;
-            color:#ffffff;
-          "
-        >
-          ${escapeHtml(settings.newsletterHeading)}
-        </h1>
-
-        <div
-          style="
-            font-size:15px;
-            line-height:1.7;
-            color:#c8c4bc;
-          "
-        >
-          ${textToHtml(settings.newsletterBody)}
-        </div>
-
-        ${
-          settings.newsletterButtonText
-            ? `
-              <div style="margin-top:32px;">
-                <a
-                  href="${escapeHtml(buttonHref)}"
-                  style="
-                    display:inline-block;
-                    padding:15px 24px;
-                    background:#f4f0e8;
-                    color:#090909;
-                    text-decoration:none;
-                    font-size:11px;
-                    font-weight:700;
-                    letter-spacing:0.16em;
-                  "
-                >
-                  ${escapeHtml(settings.newsletterButtonText)}
-                </a>
-              </div>
-            `
-            : ""
-        }
-
-      </div>
-
-      <!-- FOOTER -->
-
-      <div
-        style="
-          padding:24px 32px;
-          border-top:1px solid #292929;
-        "
-      >
-        <div
-          style="
-            font-size:11px;
-            line-height:1.6;
-            color:#777777;
-          "
-        >
-          ${escapeHtml(settings.newsletterFooterText)}
-        </div>
-
-        <div
-          style="
-            margin-top:12px;
-            font-size:10px;
-            color:#555555;
-          "
-        >
-          Sent to ${escapeHtml(email)}
-        </div>
-      </div>
-
-    </div>
-  </div>
-</body>
-</html>
-`;
-}
-
-function getNotificationEmailHtml(email: string) {
-  return `
-<!DOCTYPE html>
-<html>
-<body
-  style="
-    margin:0;
-    padding:40px;
-    background:#090909;
-    color:#f4f0e8;
-    font-family:Arial, Helvetica, sans-serif;
-  "
->
-  <div
-    style="
-      max-width:600px;
-      margin:0 auto;
-      padding:32px;
-      background:#111111;
-      border:1px solid #292929;
-    "
-  >
-    <div
-      style="
-        font-size:26px;
-        font-weight:800;
-        letter-spacing:0.15em;
-        margin-bottom:30px;
-      "
-    >
-      MANGOSTA
-    </div>
-
-    <div
-      style="
-        font-size:11px;
-        letter-spacing:0.16em;
-        color:#999999;
-        margin-bottom:12px;
-      "
-    >
-      NEW NEWSLETTER SUBSCRIBER
-    </div>
-
-    <div
-      style="
-        font-size:20px;
-        color:#ffffff;
-      "
-    >
-      ${escapeHtml(email)}
-    </div>
-
-    <div
-      style="
-        margin-top:24px;
-        font-size:12px;
-        color:#777777;
-      "
-    >
-      Someone joined the MANGOSTA WORLD newsletter from the website.
-    </div>
-  </div>
-</body>
-</html>
-`;
-}
-
+/**
+ * POST /api/newsletter { email } — the "Join MANGOSTA WORLD" form.
+ *
+ * Nobody is subscribed from the form alone (anyone can type any email):
+ * a confirm link goes to that inbox first, and the welcome email follows
+ * once it's confirmed (/newsletter/confirm). The only exception is a
+ * signed-in customer joining with their own account email - they already
+ * proved they own it when signing in.
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
@@ -298,134 +38,91 @@ export async function POST(req: NextRequest) {
 
     if (!email) {
       return NextResponse.json(
-        {
-          error: "Email address is required.",
-        },
+        { error: "Email address is required." },
         { status: 400 }
       );
     }
-
-    /*
-     * Email validation (shared with sign-up / checkout).
-     */
 
     if (!isValidEmail(email)) {
       return NextResponse.json(
-        {
-          error: "Please enter a valid email address.",
-        },
+        { error: "Please enter a valid email address." },
         { status: 400 }
       );
     }
 
-    /*
-     * Load email settings drafted by admin.
-     */
+    // Each sign-up can send an email: limit per network and per address.
+    const rate = await consumeRateLimits([
+      // Per network: generous, as mobile networks share one IP among many shoppers.
+      { key: `newsletter:ip:${getClientIp(req)}`, limit: 30, windowMs: HOUR_MS },
+      { key: `newsletter:email:${email}`, limit: 3, windowMs: HOUR_MS },
+    ]);
+
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: `Too many attempts. Please try again in ${describeWait(rate.retryAfterSeconds)}.` },
+        { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+      );
+    }
 
     const settings = await getSettings();
 
     if (!settings.newsletterEnabled) {
       return NextResponse.json(
-        {
-          error:
-            "Newsletter subscriptions are currently disabled.",
-        },
+        { error: "Newsletter subscriptions are currently disabled." },
         { status: 403 }
       );
     }
 
-    /*
-     * Save subscriber.
-     */
+    // Signed in with this very email: already verified, no confirm step.
+    const user = await getCurrentUser().catch(() => null);
 
-    const result = await addSubscriber(email);
+    if (user?.email && user.email.trim().toLowerCase() === email) {
+      const activatedNow = await activateSubscriber(email);
 
-    /*
-     * Existing subscriber:
-     * Do NOT send welcome email again.
-     */
+      if (!activatedNow) {
+        return NextResponse.json({
+          success: true,
+          alreadySubscribed: true,
+          message: "You are already subscribed to the MANGOSTA WORLD.",
+        });
+      }
 
-    if (!result.isNew) {
+      await clearMarketingOptOut(email);
+      try {
+        await sendNewsletterWelcome(email, settings);
+        await sendNewsletterSignupAlert(email, settings);
+      } catch (error) {
+        // Subscribed either way; only the welcome email failed.
+        console.error("[newsletter] Subscribed, but the welcome email could not be sent:", error);
+      }
+
       return NextResponse.json({
         success: true,
-        alreadySubscribed: true,
-        message:
-          "You are already subscribed to the MANGOSTA WORLD.",
+        alreadySubscribed: false,
+        message: "Welcome to the MANGOSTA WORLD.",
       });
     }
 
-    /*
-     * SMTP transporter.
-     */
+    // New, still waiting, or unsubscribed earlier: the owner confirms.
+    // The reply is the same whether or not the address is already
+    // subscribed, so the form doesn't reveal who is on the list.
+    const { status } = await requestSubscription(email);
 
-    const transporter = createTransporter();
+    if (status !== "active") {
+      await sendNewsletterConfirmEmail(email);
+    }
 
-    const sender =
-      process.env.SMTP_USER || "mangostateam@gmail.com";
-
-    /*
-     * Send welcome email to subscriber.
-     */
-
-    await transporter.sendMail({
-      from: `"MANGOSTA" <${sender}>`,
-      to: email,
-      subject: settings.newsletterSubject,
-      text: [
-        settings.newsletterHeading,
-        "",
-        settings.newsletterBody,
-        "",
-        settings.newsletterButtonText
-          ? `${settings.newsletterButtonText}: ${settings.newsletterButtonUrl}`
-          : "",
-        "",
-        settings.newsletterFooterText,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-      html: getWelcomeEmailHtml(
-        email,
-        settings
-      ),
-    });
-
-    /*
-     * Send notification to admin.
-     */
-
-    const notificationEmail =
-  settings.newsletterNotificationEmail?.trim();
-
-if (
-  settings.newsletterNotificationEnabled &&
-  notificationEmail
-) {
-  await transporter.sendMail({
-    from: `"MANGOSTA Website" <${sender}>`,
-    to: notificationEmail,
-    subject: `New MANGOSTA subscriber: ${email}`,
-    text: `New newsletter subscriber: ${email}`,
-    html: getNotificationEmailHtml(email),
-  });
-}
     return NextResponse.json({
       success: true,
       alreadySubscribed: false,
-      message:
-        "Welcome to the MANGOSTA WORLD.",
+      confirmationSent: true,
+      message: "Check your inbox: if this email isn't subscribed yet, we've sent a link to confirm.",
     });
   } catch (error) {
-    console.error(
-      "Newsletter subscription error:",
-      error
-    );
+    console.error("Newsletter subscription error:", error);
 
     return NextResponse.json(
-      {
-        error:
-          "Unable to complete your subscription right now. Please try again.",
-      },
+      { error: "Unable to complete your subscription right now. Please try again." },
       { status: 500 }
     );
   }

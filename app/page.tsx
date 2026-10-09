@@ -1,18 +1,17 @@
 import Navigation from "./components/Navigation";
 import LoadingScreen from "./components/LoadingScreen";
 import Hero from "./components/Hero";
-import BrandStatement from "./components/BrandStatement";
 import DropShowcase, { RailShowcase } from "./components/DropShowcase";
 import TrendingSection from "./components/TrendingSection";
 import Footer from "./components/Footer";
 import PersonalizedHome from "./components/PersonalizedHome";
-import { getProducts } from "./lib/dataStore";
+import { getAllProducts } from "./data/products";
 import { getSettings } from "./lib/dataStore";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const products = await getProducts();
+  const products = await getAllProducts();
   const settings = await getSettings();
 
   // Admin → On the Rail → "Show on phones" OFF:
@@ -59,7 +58,6 @@ export default async function Home() {
           />
         </div>
 
-        <BrandStatement />
 
         {/* 03 — THE DROP: independently managed from Admin Settings */}
         <DropShowcase

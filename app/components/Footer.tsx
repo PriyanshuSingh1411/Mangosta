@@ -1,9 +1,10 @@
  "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCursorHover } from "@/app/lib/useCursorHover";
+import { useIsDarkMode } from "@/app/lib/useTheme";
 
 const SHOP_LINKS = [
   { label: "All Products", href: "/shop" },
@@ -15,7 +16,7 @@ const SHOP_LINKS = [
 const COMPANY_LINKS = [
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
-  { label: "FAQ", href: "/#footer" },
+  { label: "FAQ", href: "/faq" },
   { label: "Trending", href: "/#trending" },
 ];
 
@@ -26,16 +27,14 @@ export default function Footer() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
+  // A confirm link was emailed (nobody is subscribed until they confirm).
+  const [confirmationSent, setConfirmationSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = useIsDarkMode();
 
   const viewCursor = useCursorHover("view", "VIEW");
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem("mangosta-theme");
-    setDarkMode(stored !== "light");
-  }, []);
 
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>
@@ -51,6 +50,7 @@ export default function Footer() {
     setError("");
     setSubmitted(false);
     setAlreadySubscribed(false);
+    setConfirmationSent(false);
     setIsSubmitting(true);
 
     try {
@@ -73,7 +73,9 @@ export default function Footer() {
         );
       }
 
-      if (data?.alreadySubscribed) {
+      if (data?.confirmationSent) {
+        setConfirmationSent(true);
+      } else if (data?.alreadySubscribed) {
         setAlreadySubscribed(true);
       } else {
         setSubmitted(true);
@@ -102,7 +104,7 @@ export default function Footer() {
         <div className="py-16 sm:py-20">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-end lg:gap-10">
 
-            <h2 className="font-display text-[7.4vw] leading-[0.9] tracking-tight text-bone sm:text-5xl md:text-6xl lg:text-[clamp(2.5rem,3.6vw,3.75rem)]">
+            <h2 className="type-title text-bone">
               JOIN THE
               <br />
               MANGOSTA WORLD.
@@ -153,7 +155,9 @@ export default function Footer() {
               >
                 {error
                   ? error
-                  : submitted
+                  : confirmationSent
+                    ? "Check your inbox: if you're not subscribed yet, there's a link to confirm."
+                    : submitted
                     ? "You're on the list."
                     : alreadySubscribed
                       ? "You're already on the list."
@@ -251,19 +255,19 @@ export default function Footer() {
           </p>
 
           <div className="flex gap-6">
-            <a
-              href="#"
+            <Link
+              href="/privacy"
               className="transition-colors hover:text-stone"
             >
               Privacy
-            </a>
+            </Link>
 
-            <a
-              href="#"
+            <Link
+              href="/terms"
               className="transition-colors hover:text-stone"
             >
               Terms
-            </a>
+            </Link>
           </div>
         </div>
 

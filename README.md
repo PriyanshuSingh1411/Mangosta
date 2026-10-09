@@ -35,13 +35,15 @@ Tailwind CSS, and Vercel**.
 -   Mangosta replies to reviews
 -   Product questions
 -   Back-in-stock alerts
--   Newsletter signup
+-   Newsletter signup (confirmed by email link)
 -   Customer support
 -   WhatsApp order support
 -   Customer account/profile and saved addresses
 -   Customer size profile
 -   Notifications
--   Abandoned-bag reminder emails
+-   Abandoned-bag reminder emails (only with marketing consent)
+-   Account deletion (with an emailed confirmation code)
+-   Privacy Policy, Terms & Conditions and FAQ pages
 
 ### Admin Panel
 
@@ -65,7 +67,7 @@ Available sections include:
 -   Product questions
 -   Size guide
 -   Support
--   Store settings
+-   Store settings (including Business & legal details for the policy pages)
 -   User engagement
     -   Customer Profiles
     -   Customer Segments
@@ -84,7 +86,7 @@ low-stock information, open returns, and order CSV export.
 
   Technology                     Purpose
   ------------------------------ ------------------------------------
-  Next.js 16.3.1                 Full-stack React framework
+  Next.js 16.3.8                 Full-stack React framework
   React 19.2.8                   UI
   TypeScript                     Application language
   Tailwind CSS 4                 Styling
@@ -96,8 +98,6 @@ low-stock information, open returns, and order CSV export.
   Framer Motion                  UI animation
   GSAP                           Advanced animations
   Lenis                          Smooth scrolling
-  Three.js / React Three Fiber   3D/visual experiences
-  Playwright                     Browser testing
   Vercel                         Deployment
 
 ------------------------------------------------------------------------
@@ -148,13 +148,23 @@ Mangosta/
 │   ├── bag/
 │   ├── checkout/
 │   ├── components/
-│   ├── data/
+│   │   └── legal/          (shared layout for Privacy, Terms, FAQ)
+│   ├── data/               (types + pure helpers shared by browser and server)
+│   ├── faq/
 │   ├── lib/
+│   │   └── store/          (data layer by area: products, inventory, orders,
+│   │                        checkout, coupons, settings; re-exported by
+│   │                        lib/dataStore.ts)
+│   ├── newsletter/         (confirm / old "join again" links)
 │   ├── notifications/
+│   ├── notify/             (back-in-stock alert confirm link)
 │   ├── orders/
+│   ├── privacy/
 │   ├── product/
 │   ├── shop/
 │   ├── support/
+│   ├── terms/
+│   ├── unsubscribe/
 │   └── wishlist/
 ├── data/
 │   ├── checkout.json
@@ -163,7 +173,6 @@ Mangosta/
 │   ├── products.json
 │   └── settings.json
 ├── public/
-├── scripts/
 ├── .gitignore
 ├── next.config.ts
 ├── package.json
@@ -391,6 +400,13 @@ npm run lint
  /notifications
  /support
  /contact
+ /faq
+ /privacy
+ /terms
+
+ /newsletter/confirm
+ /notify/confirm
+ /unsubscribe
 ```
 
 ------------------------------------------------------------------------
@@ -512,6 +528,8 @@ Track stock for each size & colour
 
 The storefront:
 
+-   Never shows more than 10 in stock (exact stock stays private) and
+    allows up to 10 of each size per order
 -   Prevents purchasing unavailable variants
 -   Displays sold-out sizes
 -   Displays low-stock information
@@ -532,8 +550,10 @@ Shipped
 Delivered
 ```
 
-Other supported states include cancellation and return/exchange
-workflows.
+Orders only move forward. A processing order can be cancelled (stock
+and coupon are given back); a shipped order that comes back undelivered
+can be cancelled as "Cancelled (RTO)". Returns and exchanges of
+delivered orders are handled in Admin → Returns.
 
 Shipping information can include:
 
@@ -559,6 +579,11 @@ Admins can:
 5.  Mark an exchange as sent
 
 Return policy settings are configurable from the admin panel.
+
+Each return shows its refund amount: what the customer actually paid for
+the items (price minus their share of the order's coupon or reward
+discount). Shipping is refunded once, only when the whole order comes
+back. A completed refund is saved and never changes afterwards.
 
 ------------------------------------------------------------------------
 
@@ -698,42 +723,30 @@ not a multi-user RBAC system.
 
 ------------------------------------------------------------------------
 
-## Recent Audit / Reliability Improvements
+## Security & Reliability
 
-The repository includes fixes for several important commerce edge cases:
-
--   Consistent sale-price rendering
--   Historical order pricing snapshots
--   Product discount and coupon discount separation
--   Inventory concurrency protection
--   Duplicate order ID protection
--   Atomic coupon usage during checkout
--   Admin coupon authentication enforcement
--   Product edits no longer unintentionally overwrite sales/inventory
--   Compare-at-price validation
--   Responsive discount layouts
--   Cache consistency for price-sensitive endpoints
-
-More detail is available in:
-
-``` text
-AUDIT_FIXES_SUMMARY.md
-```
+-   Orders, stock and coupons are saved in one all-or-nothing step
+-   Up to 5 unpaid orders per account; coupons are limited per customer
+-   Rate limits on sign-in codes, newsletter, back-in-stock alerts,
+    analytics and review photo uploads (15 per customer per day)
+-   Admin login is locked after repeated wrong passwords, and admins can
+    end all admin sessions
+-   Sign-in replies never reveal whether an email has an account
+-   Newsletter and guest back-in-stock alerts need an email confirmation
+-   Marketing emails only with consent, with an unsubscribe link in each
+-   Public product data hides exact stock; public settings expose only
+    what the storefront needs
+-   Review photos must come from this store's Cloudinary folder
+-   Error messages never show internal details to visitors
 
 ------------------------------------------------------------------------
 
-## Additional Documentation
+## Legal Pages
 
-The repository also contains:
-
-``` text
-AUDIT_FIXES_SUMMARY.md
-CHECKOUT_SHARE_UPDATE.md
-NEW_FEATURES.md
-RETURNS_QA_UPDATE.md
-```
-
-These documents describe feature changes and QA/audit work.
+`/privacy`, `/terms` and `/faq` use the live store settings (return
+window, delivery days, free-shipping threshold). Fill in **Admin →
+Settings → Business & legal** (legal name, address, customer-care phone,
+grievance officer, city for disputes) so they appear on these pages.
 
 ------------------------------------------------------------------------
 
@@ -826,5 +839,4 @@ Mangosta is an actively developed e-commerce application with both
 customer-facing storefront functionality and a full operational admin
 panel.
 
-The repository currently contains **no README file by default**; this
-document is intended to be the project's main GitHub README.
+This document is the project's main README.

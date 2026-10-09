@@ -1,99 +1,100 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/app/lib/auth/session";
-import {
-  trackEngagementEvent,
-  type EngagementEventType,
-} from "@/app/lib/userEngagement";
+import { trackEngagementEvent } from "@/app/lib/userEngagement";
+import { cleanBrowserEvent } from "@/app/lib/engagementSchema";
+import { consumeRateLimits, getClientIp } from "@/app/lib/rateLimit";
+import { getProducts } from "@/app/lib/dataStore";
 
 /**
- * Events the browser may send. Wishlist, review and purchase events are
- * recorded by the server itself (wishlist API, reviews API, checkout API),
- * so the browser can't add duplicates or fake purchases.
+ * POST /api/engagement — analytics events from the browser.
+ *
+ * Only the events and fields listed in app/lib/engagementSchema.ts are
+ * accepted (everything else is dropped), product events must name a real
+ * product, and each browser session / network is rate-limited, so the
+ * Admin → User analytics can't be flooded or skewed by a script.
  */
-const ALLOWED_EVENTS: EngagementEventType[] = [
-  "page_view",
-  "product_view",
-  "search",
-  "cart_add",
-  "cart_remove",
-  "checkout_start",
-  "notification_open",
-  "notification_click",
-  "support_open",
-  "coupon_apply",
-  "product_share",
-];
 
-function getOrCreateSessionId(request: Request): string {
-  const cookieHeader = request.headers.get("cookie") || "";
+const SESSION_COOKIE = "mangosta_engagement_session";
+const TEN_MINUTES = 10 * 60 * 1000;
+const SESSION_LIMIT = 120; // events per browser session per 10 minutes
+const NETWORK_LIMIT = 600; // events per network per 10 minutes
 
-  const match = cookieHeader.match(
-    /(?:^|;\s*)mangosta_engagement_session=([^;]+)/
-  );
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (match?.[1]) {
-    return decodeURIComponent(match[1]);
-  }
-
-  return crypto.randomUUID();
+/** The browser's session id (a UUID this site issued), or null. */
+function sessionIdFromCookie(request: NextRequest): string | null {
+  const value = request.cookies.get(SESSION_COOKIE)?.value ?? "";
+  return UUID.test(value) ? value.toLowerCase() : null;
 }
 
-export async function POST(request: Request) {
+// Product ids, refreshed at most once a minute (product events must name
+// a real product).
+let productIds: { at: number; ids: Set<string> } | null = null;
+
+async function isKnownProduct(id: string): Promise<boolean> {
+  if (!productIds || Date.now() - productIds.at > 60_000) {
+    const products = await getProducts();
+    productIds = { at: Date.now(), ids: new Set(products.map((product) => product.id)) };
+  }
+  return productIds.ids.has(id);
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    const clean = cleanBrowserEvent(body);
 
-    const event = String(body?.event || "") as EngagementEventType;
-
-    if (!ALLOWED_EVENTS.includes(event)) {
+    if (!clean) {
       return NextResponse.json(
         { error: "Invalid engagement event." },
         { status: 400 }
       );
     }
 
-    const sessionId = getOrCreateSessionId(request);
+    const existingSession = sessionIdFromCookie(request);
+    const sessionId = existingSession ?? crypto.randomUUID();
+
+    // The network limit is the hard cap (a script can always start new
+    // sessions); the session limit stops one browser from flooding.
+    const rate = await consumeRateLimits([
+      { key: `engagement:ip:${getClientIp(request)}`, limit: NETWORK_LIMIT, windowMs: TEN_MINUTES },
+      ...(existingSession
+        ? [{ key: `engagement:session:${existingSession}`, limit: SESSION_LIMIT, windowMs: TEN_MINUTES }]
+        : []),
+    ]);
+
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: "Too many events." },
+        { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+      );
+    }
+
+    if (clean.productId && !(await isKnownProduct(clean.productId))) {
+      return NextResponse.json(
+        { error: "Unknown product." },
+        { status: 400 }
+      );
+    }
+
     const user = await getCurrentUser();
 
     await trackEngagementEvent({
-      event,
+      ...clean,
       userId: user?.id,
       sessionId,
-      productId:
-        typeof body?.productId === "string"
-          ? body.productId
-          : undefined,
-      searchQuery:
-        typeof body?.searchQuery === "string"
-          ? body.searchQuery
-          : undefined,
-      path:
-        typeof body?.path === "string"
-          ? body.path
-          : undefined,
-      metadata:
-        body?.metadata &&
-        typeof body.metadata === "object"
-          ? body.metadata
-          : undefined,
     });
 
-    const response = NextResponse.json({
-      ok: true,
-      sessionId,
-    });
+    const response = NextResponse.json({ ok: true, sessionId });
 
-    if (!cookieHeaderHasSession(request)) {
-      response.cookies.set(
-        "mangosta_engagement_session",
-        sessionId,
-        {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 30 * 24 * 60 * 60,
-        }
-      );
+    if (!existingSession) {
+      response.cookies.set(SESSION_COOKIE, sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+      });
     }
 
     return response;
@@ -105,12 +106,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
-
-function cookieHeaderHasSession(request: Request): boolean {
-  const cookieHeader = request.headers.get("cookie") || "";
-
-  return /(?:^|;\s*)mangosta_engagement_session=/.test(
-    cookieHeader
-  );
 }

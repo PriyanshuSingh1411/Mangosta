@@ -18,9 +18,10 @@ import {
   hasProductDiscount,
   getProductStrikethroughPrice,
   ONE_SIZE,
+  getProductSavingsPercent,
 } from "@/app/data/productTypes";
 import type { DropSettings, RailSettings } from "@/app/lib/dataStore";
-import { maxAllowedForLine, useCartStore } from "@/app/store/useCartStore";
+import { bagLimitMessage, maxAllowedForLine, useCartStore } from "@/app/store/useCartStore";
 import { flyToBag } from "@/app/lib/flyToBag";
 import { useAuth } from "@/app/components/AuthProvider";
 import WishlistButton from "@/app/components/WishlistButton";
@@ -33,15 +34,6 @@ type DropShowcaseProps = {
   products: Product[];
 };
 
-const titleFontClass: Record<
-  DropSettings["products"][number]["titleStyle"],
-  string
-> = {
-  display: "font-display",
-  body: "font-body",
-  technical: "font-technical",
-  mono: "font-mono",
-};
 
 export default function DropShowcase({
   settings,
@@ -120,7 +112,7 @@ export default function DropShowcase({
               {settings.label}
             </p>
 
-            <h2 className="font-display text-4xl uppercase tracking-[-0.04em] text-bone sm:text-6xl">
+            <h2 className="type-title uppercase text-bone">
               {settings.title}
             </h2>
           </div>
@@ -144,7 +136,6 @@ export default function DropShowcase({
                 product={product}
                 href={href}
                 title={title}
-                titleClassName={titleFontClass[item.titleStyle]}
               />
             ))}
           </div>
@@ -366,15 +357,14 @@ function RailPrice({
 }) {
   const salePrice = getProductSalePrice(product);
   const strikethrough = getProductStrikethroughPrice(product);
-  const discountPercent = Math.round(
-    Number(product.discountPercent) || 0
-  );
+  // "SAVE x%" against the crossed-out price shown next to it.
+  const discountPercent = getProductSavingsPercent(product) ?? 0;
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
       {strikethrough !== null && (
         <span
-          className={`font-mono text-stone-dark line-through ${
+          className={`font-body tabular-nums text-stone-dark line-through ${
             large ? "text-sm" : "text-[10px]"
           }`}
         >
@@ -383,7 +373,7 @@ function RailPrice({
       )}
 
       <span
-        className={`font-mono text-bone-dim ${
+        className={`type-price text-bone-dim ${
           large ? "text-base" : "text-xs"
         }`}
       >
@@ -391,8 +381,8 @@ function RailPrice({
       </span>
 
       {hasProductDiscount(product) && discountPercent > 0 && (
-        <span className="text-[10px] font-medium tracking-[0.12em] text-mango">
-          {discountPercent}% OFF
+        <span className="rounded-sm bg-mango/10 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-mango">
+          Save {discountPercent}%
         </span>
       )}
     </div>
@@ -1096,12 +1086,9 @@ function RailProductView({
     const state = useCartStore.getState();
     const lineId = `${product.id}-${selectedSize}-${colorName}`;
     const inBag = state.lines.find((line) => line.lineId === lineId)?.quantity ?? 0;
-    if (inBag + 1 > maxAllowedForLine(state.lines, product, selectedSize, colorName, lineId)) {
-      setStockError(
-        inBag > 0
-          ? "All available units of this size are already in your bag."
-          : "This size just sold out."
-      );
+    const allowed = maxAllowedForLine(state.lines, product, selectedSize, colorName, lineId);
+    if (inBag + 1 > allowed) {
+      setStockError(bagLimitMessage(inBag, allowed));
       return;
     }
 
@@ -1357,7 +1344,7 @@ function RailProductView({
               <p className="label-technical mb-3">{category}</p>
 
               <div className="flex items-start gap-3">
-                <h2 className="font-display text-3xl uppercase leading-[0.95] tracking-[-0.03em] text-bone sm:text-4xl xl:text-5xl">
+                <h2 className="type-title uppercase text-bone">
                   {garment.title}
                 </h2>
                 <WishlistButton

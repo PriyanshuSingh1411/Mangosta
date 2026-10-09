@@ -19,7 +19,8 @@ interface EmailSettings {
 interface NewsletterSubscriber {
   email: string;
   joinedAt: string;
-  status: "active";
+  /** pending = waiting for the customer to confirm from the email link. */
+  status: "pending" | "active" | "unsubscribed";
   source: "website";
 }
 
@@ -321,7 +322,7 @@ newsletterNotificationEmail:
           COMMUNICATION
         </p>
 
-        <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-bone">
+        <h1 className="type-heading text-bone">
           Email
         </h1>
 
@@ -343,7 +344,7 @@ newsletterNotificationEmail:
           COMMUNICATION
         </p>
 
-        <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-bone">
+        <h1 className="type-heading text-bone">
           Email
         </h1>
 
@@ -403,7 +404,7 @@ newsletterNotificationEmail:
               WELCOME EMAIL
             </p>
 
-            <h2 className="font-display text-xl text-bone">
+            <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">
               New Member Welcome
             </h2>
 
@@ -696,7 +697,7 @@ newsletterNotificationEmail:
               ADMIN NOTIFICATIONS
             </p>
 
-            <h2 className="font-display text-xl text-bone">
+            <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">
               Email Notifications
             </h2>
 
@@ -819,20 +820,21 @@ newsletterNotificationEmail:
               MANGOSTA WORLD
             </p>
 
-            <h2 className="font-display text-xl text-bone">
+            <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">
               Subscribers
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-stone">
               People who have joined the MANGOSTA WORLD
-              will appear here.
+              will appear here. &ldquo;Pending&rdquo; means they haven&apos;t
+              confirmed from the email link yet, so they get no emails.
             </p>
           </div>
 
           <div className="border border-line">
   {subscribersLoading ? (
     <div className="px-6 py-14 text-center">
-      <p className="font-display text-lg text-bone">
+      <p className="font-display text-lg tracking-tight text-bone sm:text-xl">
         Loading subscribers…
       </p>
 
@@ -865,7 +867,7 @@ newsletterNotificationEmail:
     </div>
   ) : subscribers.length === 0 ? (
     <div className="px-6 py-14 text-center">
-      <p className="font-display text-lg text-bone">
+      <p className="font-display text-lg tracking-tight text-bone sm:text-xl">
         No subscribers yet
       </p>
 
@@ -924,7 +926,13 @@ newsletterNotificationEmail:
               </td>
 
               <td className="px-6 py-5">
-                <span className="inline-flex border border-mango/30 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-mango">
+                <span
+                  className={`inline-flex border px-3 py-1 text-[10px] uppercase tracking-[0.14em] ${
+                    subscriber.status === "active"
+                      ? "border-mango/30 text-mango"
+                      : "border-line-strong text-stone"
+                  }`}
+                >
                   {subscriber.status}
                 </span>
               </td>

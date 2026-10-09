@@ -154,12 +154,6 @@ export function addDaysToKey(key: string, days: number): string {
     .slice(0, 10);
 }
 
-export function daysBetweenKeys(fromKey: string, toKey: string): number {
-  return Math.round(
-    (keyToUtcMidnight(toKey) - keyToUtcMidnight(fromKey)) / DAY_MS
-  );
-}
-
 /** 00:00 India time at the start of an India calendar day. */
 export function indiaDayStart(key: string): Date {
   return new Date(keyToUtcMidnight(key) - IST_OFFSET_MS);

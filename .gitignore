@@ -28,3 +28,6 @@ AGENTS.md
 
 # Project documentation
 README.md
+
+# TypeScript build cache
+*.tsbuildinfo

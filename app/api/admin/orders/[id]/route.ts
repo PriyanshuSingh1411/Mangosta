@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { isAuthenticated } from "@/app/lib/adminAuth";
 import {
   cancelProcessingOrder,
+  cancelReturnedOrder,
   getOrderById,
   getOrders,
   ORDER_STATUSES,
@@ -9,6 +10,7 @@ import {
   updateOrderStatus,
 } from "@/app/lib/dataStore";
 import type { OrderStatus } from "@/app/lib/dataStore";
+import { canChangeOrderStatus } from "@/app/data/storeTypes";
 import { emailForStatusChange, sendOrderStatusEmail } from "@/app/lib/orderEmails";
 import { notifyBackInStock } from "@/app/lib/stockAlerts";
 
@@ -17,8 +19,11 @@ import { notifyBackInStock } from "@/app/lib/stockAlerts";
  *   { status }                              pending | shipped | delivered | cancelled
  *   { status: "shipped", shipment: { courier, trackingNumber, trackingUrl } }
  *
+ * Only allowed steps (see ORDER_STATUS_STEPS):
+ *   Processing → Shipped | Cancelled;  Shipped → Delivered | Cancelled (RTO)
  * Emails the customer when the order ships (or its tracking changes), is
- * delivered or is cancelled. Cancelling before it ships puts the stock back.
+ * delivered or is cancelled. Cancelling (before shipping, or after it came
+ * back to us) puts the stock back and gives the coupon use back.
  */
 export async function PATCH(
   req: NextRequest,
@@ -62,16 +67,31 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Cancelling before it ships: stock goes back (once) and waiting
-  // customers hear that the size is available again.
-  if (status === "cancelled" && before.status === "pending") {
-    const result = await cancelProcessingOrder(id, { by: "admin" });
-    if (result) {
-      after(async () => {
-        await notifyBackInStock(result.restockedProductIds);
-        await sendOrderStatusEmail(result.order, "cancelled");
-      });
+  // Cancelling (before it ships, or after it came back to us): stock goes
+  // back (once), the coupon use is given back, and waiting customers hear
+  // that the size is available again.
+  if (
+    status === "cancelled" &&
+    (before.status === "pending" || before.status === "shipped") &&
+    canChangeOrderStatus(before.status, status)
+  ) {
+    const result =
+      before.status === "pending"
+        ? await cancelProcessingOrder(id, { by: "admin" })
+        : await cancelReturnedOrder(id);
+
+    if (!result) {
+      return NextResponse.json(
+        { error: "This order was just changed. Refresh the page and try again." },
+        { status: 409 }
+      );
     }
+
+    after(async () => {
+      await notifyBackInStock(result.restockedProductIds);
+      await sendOrderStatusEmail(result.order, "cancelled");
+    });
+
     return NextResponse.json({ orders: await getOrders() });
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import BusinessDetailsSettings from "./BusinessDetailsSettings";
 
 type MangostaCodeStyle =
   | "display"
@@ -580,11 +581,9 @@ export default function AdminSettingsPage() {
   const [heroUploadIndex, setHeroUploadIndex] =
     useState<number | null>(null);
 
-  const imageInputRef =
-    useRef<HTMLInputElement>(null);
 
   const [selectedSection, setSelectedSection] = useState<
-  "hero" | "rail" | "announcement" | "drop"
+  "hero" | "rail" | "announcement" | "drop" | "business"
 >("hero");
 
   // "<index>-frontImage" / "<index>-backImage" while a rail image uploads
@@ -615,6 +614,11 @@ export default function AdminSettingsPage() {
     id: "drop" as const,
     label: "The Drop",
     description: "Featured drop section with products",
+  },
+  {
+    id: "business" as const,
+    label: "Business & legal",
+    description: "Legal name, address, customer care and grievance officer shown on the Privacy, Terms and FAQ pages",
   },
 ];
 
@@ -897,7 +901,7 @@ export default function AdminSettingsPage() {
       e.currentTarget.dataset.heroIndex
     );
 
-    const imageField: "image" = "image";
+    const imageField = "image" as const;
 
     e.target.value = "";
 
@@ -1404,7 +1408,7 @@ const handleHeroMobileImageUpload = async (
           CONFIGURATION
         </p>
 
-        <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-bone">
+        <h1 className="type-heading text-bone">
           Settings
         </h1>
 
@@ -1446,38 +1450,43 @@ const handleHeroMobileImageUpload = async (
         CONFIGURATION
       </p>
 
-      <h1 className="mb-10 font-display text-2xl sm:text-3xl tracking-tight text-bone">
+      <h1 className="mb-10 type-heading text-bone">
         Settings
       </h1>
 
       {/* SECTION DROPDOWN NAVIGATION */}
       <div className="mb-8 flex flex-col gap-3">
+        {/* Save at the top too (submits the settings form below). The
+            Business & legal section has its own Save button. */}
+        {selectedSection !== "business" && (
+          <div className="flex items-center gap-4">
+            <button
+              type="submit"
+              form="site-settings-form"
+              disabled={
+                isSaving || isUploading
+              }
+              className="bg-bone px-6 py-3 text-xs font-medium tracking-[0.2em] text-void transition-colors hover:bg-mango disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSaving
+                ? "SAVING…"
+                : "SAVE SETTINGS"}
+            </button>
+
+            {saved && (
+              <span className="text-xs text-mango">
+                Saved.
+              </span>
+            )}
+          </div>
+        )}
         <label htmlFor="section-select" className="text-xs text-stone">
           SELECT SECTION
-            <div className="flex items-center gap-4">
-          <button
-            type="submit"
-            disabled={
-              isSaving || isUploading
-            }
-            className="bg-bone px-6 py-3 text-xs font-medium tracking-[0.2em] text-void transition-colors hover:bg-mango disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSaving
-              ? "SAVING…"
-              : "SAVE SETTINGS"}
-          </button>
-
-          {saved && (
-            <span className="text-xs text-mango">
-              Saved.
-            </span>
-          )}
-        </div>
         </label>
         <select
           id="section-select"
           value={selectedSection}
-          onChange={(e) => setSelectedSection(e.target.value as any)}
+          onChange={(e) => setSelectedSection(e.target.value as typeof selectedSection)}
           className="max-w-xs rounded border border-line-strong bg-charcoal px-3 py-2 text-sm text-bone hover:border-mango focus:border-mango focus:outline-none"
         >
           {SECTION_CONFIG.map((section) => (
@@ -1491,7 +1500,11 @@ const handleHeroMobileImageUpload = async (
         </p>
       </div>
 
+      {selectedSection === "business" ? (
+        <BusinessDetailsSettings />
+      ) : (
       <form
+        id="site-settings-form"
         onSubmit={handleSubmit}
         className="flex max-w-3xl flex-col gap-12"
       >
@@ -1807,6 +1820,7 @@ const handleHeroMobileImageUpload = async (
                               className="relative h-[450px] w-full overflow-hidden bg-charcoal"
                               aria-label="Hero image preview"
                             >
+                              {/* eslint-disable-next-line @next/next/no-img-element -- admin preview of any address the admin enters */}
                               <img
                                 src={slide.image}
                                 alt={
@@ -1909,6 +1923,7 @@ const handleHeroMobileImageUpload = async (
                         {slide.mobileImage ? (
                           <div className="overflow-hidden border border-line-strong bg-charcoal">
                             <div className="relative h-[420px] w-full overflow-hidden bg-charcoal sm:w-[320px]">
+                              {/* eslint-disable-next-line @next/next/no-img-element -- admin preview of any address the admin enters */}
                               <img
                                 src={slide.mobileImage}
                                 alt={`${slide.headlineLine1 || "Hero"} mobile preview`}
@@ -2358,6 +2373,7 @@ const handleHeroMobileImageUpload = async (
                           <div className="mt-4 flex items-center gap-4 border border-line-strong p-3">
                             {selectedProduct.images?.[0] ? (
                               <div className="h-16 w-16 shrink-0 overflow-hidden bg-charcoal">
+                                {/* eslint-disable-next-line @next/next/no-img-element -- admin preview of any address the admin enters */}
                                 <img
                                   src={
                                     selectedProduct
@@ -3026,6 +3042,7 @@ const handleHeroMobileImageUpload = async (
                     {selectedProduct && (
                       <div className="flex items-center gap-4 border border-line-strong p-3">
                         {selectedProduct.images?.[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- admin preview of any address the admin enters
                           <img
                             src={selectedProduct.images[0]}
                             alt={selectedProduct.name}
@@ -3126,6 +3143,7 @@ const handleHeroMobileImageUpload = async (
           )}
         </div>
       </form>
+      )}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import type { Product, ProductColor, ProductCategory } from "@/app/data/productTypes";
 import {
-  getProductSizes,
   variantKey,
   colorKey,
   slugify,
@@ -21,36 +20,6 @@ import {
 } from "@/app/lib/priceValidation";
 
 type SpreadsheetRow = Record<string, unknown>;
-
-type ProductRow = {
-  productId?: unknown;
-  id?: unknown;
-  name?: unknown;
-  slug?: unknown;
-  price?: unknown;
-  discount?: unknown;
-  discountPercent?: unknown;
-  compareAtPrice?: unknown;
-  category?: unknown;
-  description?: unknown;
-  details?: unknown;
-  colors?: unknown;
-  sizes?: unknown;
-  dropLabel?: unknown;
-  isNew?: unknown;
-};
-
-type VariantRow = {
-  productId?: unknown;
-  id?: unknown;
-  color?: unknown;
-  colorHex?: unknown;
-  hex?: unknown;
-  size?: unknown;
-  inventory?: unknown;
-  stock?: unknown;
-  images?: unknown;
-};
 
 export type BulkImportResult = {
   imported: number;
@@ -238,18 +207,6 @@ function parseImages(value: unknown): string[] {
     (url) =>
       /^https?:\/\//i.test(url) ||
       url.startsWith("/")
-  );
-}
-
-function getProductIdentifier(row: SpreadsheetRow): string {
-  return text(
-    getValue(
-      row,
-      "productId",
-      "productID",
-      "product",
-      "id"
-    )
   );
 }
 

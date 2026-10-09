@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/app/lib/auth/session";
-import { cancelProcessingOrder, getOrderById } from "@/app/lib/dataStore";
+import { cancelProcessingOrder, getCustomerOrder } from "@/app/lib/dataStore";
 import { CANCEL_REASONS } from "@/app/data/storeTypes";
 import { sendOrderStatusEmail, sendShopCancelAlert } from "@/app/lib/orderEmails";
 import { notifyBackInStock } from "@/app/lib/stockAlerts";
@@ -23,11 +23,9 @@ export async function POST(
   const body = await req.json().catch(() => null);
   const reason = CANCEL_REASONS.includes(String(body?.reason ?? "")) ? String(body.reason) : "";
 
-  const order = await getOrderById(id);
-  const ownsOrder =
-    order && order.customer.email.trim().toLowerCase() === user.email.trim().toLowerCase();
+  const order = await getCustomerOrder({ userId: user.id, email: user.email }, id);
 
-  if (!order || !ownsOrder) {
+  if (!order) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 

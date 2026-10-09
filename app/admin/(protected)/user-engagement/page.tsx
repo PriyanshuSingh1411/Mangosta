@@ -686,9 +686,9 @@ function StatCard({
   loading?: boolean;
 }) {
   return (
-    <div className="bg-charcoal p-5">
+    <div className="bg-charcoal p-4 sm:p-5">
       <p className="label-technical text-stone">{label}</p>
-      <p className="mt-4 break-words font-display text-2xl tracking-tight text-bone sm:text-3xl">
+      <p className="mt-4 type-heading text-bone">
         {loading ? "—" : value}
       </p>
       {description && (
@@ -713,7 +713,7 @@ function SectionHeading({
     <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="label-technical text-stone">{eyebrow}</p>
-        <h2 className="mt-2 font-display text-2xl text-bone">{title}</h2>
+        <h2 className="mt-2 type-heading text-bone">{title}</h2>
         {description && (
           <p className="mt-2 max-w-3xl text-xs leading-relaxed text-stone">{description}</p>
         )}
@@ -741,10 +741,10 @@ function PanelHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-line p-6 sm:flex-row sm:items-start sm:justify-between sm:p-8">
+    <div className="flex flex-col gap-3 border-b border-line p-5 sm:flex-row sm:items-start sm:justify-between sm:p-8">
       <div>
         <p className="label-technical text-stone">{eyebrow}</p>
-        <h3 className="mt-2 font-display text-xl text-bone sm:text-2xl">{title}</h3>
+        <h3 className="mt-2 type-heading text-bone">{title}</h3>
         {description && (
           <p className="mt-2 max-w-2xl text-xs leading-relaxed text-stone">{description}</p>
         )}
@@ -952,7 +952,7 @@ export default function UserEngagementPage({
         <div className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="label-technical mb-3 text-mango">{config.eyebrow}</p>
-            <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">{config.title}</h1>
+            <h1 className="type-heading text-bone">{config.title}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone">{config.description}</p>
           </div>
 
@@ -1089,7 +1089,7 @@ function OverviewSection({
           title="Store activity"
           description="Raw activity counts (every action, not unique people). Unique-customer rates are in the funnel below."
         />
-        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <StatCard loading={loading} label="Product views" value={formatNumber(s?.productViews ?? 0)} />
           <StatCard loading={loading} label="Wishlist adds" value={formatNumber(s?.wishlistAdds ?? 0)} />
           <StatCard loading={loading} label="Bag adds" value={formatNumber(s?.cartAdds ?? 0)} />
@@ -1150,7 +1150,7 @@ function OverviewSection({
             title="Where customers drop off"
             description="Unique customers who added to the bag or started checkout in the period, and how many of them placed a valid order."
           />
-          <div className="grid grid-cols-2 gap-px bg-line">
+          <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2">
             <StatCard loading={loading} label="Bag customers" value={formatNumber(f?.cartCustomers ?? 0)} />
             <StatCard loading={loading} label="Checkout customers" value={formatNumber(f?.checkoutCustomers ?? 0)} />
             <StatCard loading={loading} label="Bag → checkout" value={formatPercent(bagToCheckout)} description="Bag customers who started checkout" />
@@ -1257,7 +1257,7 @@ function EngagementTrend({ data, loading }: { data: TrendPoint[]; loading: boole
       <div className="flex flex-col gap-5 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="label-technical text-stone">ENGAGEMENT TREND</p>
-          <h2 className="mt-2 font-display text-2xl text-bone">Customer activity over time</h2>
+          <h2 className="mt-2 font-display text-lg tracking-tight text-bone sm:text-xl">Customer activity over time</h2>
           <p className="mt-2 text-xs text-stone">
             Daily values (India time).{" "}
             {metric === "orders" || metric === "revenue" ? "From valid orders." : "From tracked activity."}{" "}
@@ -1715,12 +1715,12 @@ function SegmentsSection({
           title="Where customers sit in the journey"
           description={`Behaviour and score use ${shown?.period.label.toLowerCase() ?? "the selected period"}; High Value and Loyal use lifetime orders. Customers can belong to more than one segment. ${shown?.definitions.engagementScore ?? ""}`}
         />
-        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           <StatCard loading={!summary} label="Active customers" value={formatNumber(summary?.activeCustomers ?? 0)} description="Activity or an order in the period" />
           <StatCard loading={!summary} label="Average score" value={`${summary?.averageScore ?? 0}/100`} description="Across active customers" />
           <StatCard loading={!summary} label="Highly engaged" value={formatNumber(summary?.highlyEngaged ?? 0)} description="Score 40+ in the period" />
           <StatCard loading={!summary} label="High value" value={formatNumber(summary?.highValue ?? 0)} description="₹10,000+ lifetime revenue" />
-          <div className="col-span-2 md:col-span-1">
+          <div className="min-[420px]:col-span-2 md:col-span-1">
             <StatCard loading={!summary} label="Cart abandoners" value={formatNumber(summary?.cartAbandoners ?? 0)} description="No order since latest bag add" />
           </div>
         </div>
@@ -2093,11 +2093,11 @@ function FeatureUsageSection({ range }: { range: string }) {
           title="Which Mangosta features are actually being used?"
           description="Uses = every recorded action. Customers = unique signed-in customers. Sessions = unique browser sessions (signed-in or guest)."
         />
-        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {(loading ? [] : features).map((feature) => (
             <div key={feature.key} className="bg-charcoal p-5">
               <p className="label-technical text-stone">{feature.label}</p>
-              <p className="mt-4 font-display text-3xl text-bone">{formatNumber(feature.uses)}</p>
+              <p className="mt-4 type-heading text-bone">{formatNumber(feature.uses)}</p>
               <p className="mt-1 text-[10px] text-stone">uses</p>
               <div className="mt-4 flex justify-between border-t border-line pt-3 font-mono text-[10px] text-stone">
                 <span>{countOf(feature.uniqueUsers, "customer")}</span>
@@ -2314,7 +2314,7 @@ function LtvSection({
           title="Customer lifetime value"
           description={data?.definitions.lifetime}
         />
-        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <StatCard loading={loading} label="Paying customers" value={formatNumber(l?.payingCustomers ?? 0)} description={`${countOf(l?.registeredCustomers ?? 0, "account")} · ${countOf(l?.guestCustomers ?? 0, "guest")}`} />
           <StatCard loading={loading} label="Customer LTV" value={formatCurrency(l?.customerLifetimeValue ?? 0)} description="Lifetime revenue ÷ paying customers" />
           <StatCard loading={loading} label="Lifetime revenue" value={formatCurrency(l?.lifetimeRevenue ?? 0)} description={`${countOf(l?.lifetimeOrders ?? 0, "valid order")}`} />
@@ -2330,7 +2330,7 @@ function LtvSection({
           title="What happened in this period"
           description={data?.definitions.period}
         />
-        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <StatCard loading={loading} label="Buyers" value={formatNumber(p?.buyers ?? 0)} description="Customers who ordered" />
           <StatCard loading={loading} label="Orders" value={formatNumber(p?.orders ?? 0)} />
           <StatCard loading={loading} label="Revenue" value={formatCurrency(p?.revenue ?? 0)} />
@@ -2411,7 +2411,7 @@ function SearchSection({ range }: { range: string }) {
           title="Search performance"
           description={`${data?.definitions.searchSession ?? ""} ${data?.definitions.attribution ?? ""}`}
         />
-        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <StatCard loading={loading} label="Total searches" value={formatNumber(s?.totalSearches ?? 0)} description="Every search event" />
           <StatCard loading={loading} label="Search sessions" value={formatNumber(s?.searchSessions ?? 0)} description={`${(s?.searchesPerSession ?? 0).toFixed(2)} searches per session`} />
           <StatCard loading={loading} label="Search users" value={formatNumber(s?.searchUsers ?? 0)} description="Signed-in customers who searched" />
@@ -2592,7 +2592,7 @@ function ProductRankingCard({
     <Panel>
       <div className="border-b border-line p-6">
         <p className="label-technical text-stone">PRODUCT PERFORMANCE</p>
-        <h3 className="mt-2 font-display text-xl text-bone">{title}</h3>
+        <h3 className="mt-2 font-display text-lg tracking-tight text-bone sm:text-xl">{title}</h3>
         <p className="mt-2 text-xs leading-relaxed text-stone">{description}</p>
       </div>
       <div>
@@ -2632,7 +2632,7 @@ function ProductDiscoverySection({ range }: { range: string }) {
       <ErrorNotice message={error} />
       <section className="mt-8">
         <SectionHeading eyebrow="PRODUCT DISCOVERY" title="What customers discover and what converts" description={data?.definitions.conversion} />
-        <div className="grid grid-cols-2 gap-px bg-line md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <StatCard loading={loading} label="Product viewers" value={formatNumber(t?.uniqueViewers ?? 0)} description={`${countOf(t?.views ?? 0, "product view")}`} />
           <StatCard loading={loading} label="Wishlist adds" value={formatNumber(t?.wishlistAdds ?? 0)} />
           <StatCard loading={loading} label="Bag adds" value={formatNumber(t?.cartAdds ?? 0)} />
@@ -2641,7 +2641,7 @@ function ProductDiscoverySection({ range }: { range: string }) {
           <StatCard loading={loading} label="Viewer conversion" value={formatPercent(t?.conversionRate ?? 0)} description="Store average: viewers who bought what they viewed" />
         </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-px bg-line md:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-2 md:grid-cols-4">
           <StatCard loading={loading} label="Categories" value={formatNumber(data?.categories.length ?? 0)} description="With products or activity" />
           <StatCard loading={loading} label="Products" value={formatNumber(data?.products.length ?? 0)} description="In the catalogue or with sales" />
           <StatCard loading={loading} label="Top category" value={topCategory?.category ?? "—"} description={topCategory ? `${countOf(topCategory.uniqueViewers, "unique viewer")}` : "No data"} />
@@ -2899,7 +2899,7 @@ function CustomerProfileModal({
         <div className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-line bg-charcoal p-6 sm:p-8">
           <div className="min-w-0">
             <p className="label-technical text-stone">CUSTOMER PROFILE</p>
-            <h2 className="mt-2 truncate font-display text-3xl text-bone">
+            <h2 className="mt-2 truncate type-heading text-bone">
               {title}
               {data?.customer.isGuest && <GuestTag />}
             </h2>
@@ -2935,7 +2935,7 @@ function ProfileStatGrid({ items }: { items: [string, string][] }) {
       {items.map(([label, value]) => (
         <div key={label} className="bg-void p-4 last:col-span-2 lg:last:col-span-1">
           <p className="label-technical text-stone">{label}</p>
-          <p className="mt-3 break-words font-display text-xl text-bone">{value}</p>
+          <p className="mt-3 type-heading text-bone">{value}</p>
         </div>
       ))}
     </div>

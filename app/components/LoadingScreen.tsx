@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import Image from "next/image";
 import { useSiteStore } from "@/app/store/useSiteStore";
+import { useIsDarkMode } from "@/app/lib/useTheme";
 
 export default function LoadingScreen() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -11,14 +12,10 @@ export default function LoadingScreen() {
   const counterRef = useRef<HTMLSpanElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
   const [isDone, setIsDone] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = useIsDarkMode();
   const setLoaded = useSiteStore((s) => s.setLoaded);
   const prefersReducedMotion = useSiteStore((s) => s.prefersReducedMotion);
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem("mangosta-theme");
-    setDarkMode(stored !== "light");
-  }, []);
 
   useEffect(() => {
     const counterObj = { value: 0 };
@@ -94,7 +91,7 @@ export default function LoadingScreen() {
             priority
           />
         </div>
-        <h1 className="font-display text-[13vw] leading-[0.85] tracking-tight text-bone sm:text-[7rem]">
+        <h1 className="type-display text-bone">
           MANGOSTA
         </h1>
       </div>

@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import type { TouchEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 
 import type {
@@ -123,10 +122,12 @@ export default function Hero({
    * ============================================================
    */
 
+  const settingsSlides = settings?.slides;
+
   const slides = useMemo(() => {
     const configuredSlides =
-      Array.isArray(settings?.slides)
-        ? settings.slides
+      Array.isArray(settingsSlides)
+        ? settingsSlides
             .filter(
               (slide) =>
                 slide &&
@@ -141,7 +142,7 @@ export default function Hero({
     return configuredSlides.length
       ? configuredSlides
       : [DEFAULT_SLIDE];
-  }, [settings?.slides]);
+  }, [settingsSlides]);
 
   /*
    * ============================================================
@@ -149,16 +150,11 @@ export default function Hero({
    * ============================================================
    */
 
-  useEffect(() => {
-    if (
-      currentIndex >= slides.length
-    ) {
-      setCurrentIndex(0);
-    }
-  }, [
-    currentIndex,
-    slides.length,
-  ]);
+  // Slides were removed in the admin: start again from the first one
+  // (adjusted while rendering; currentSlide below already falls back).
+  if (currentIndex >= slides.length) {
+    setCurrentIndex(0);
+  }
 
   /*
    * ============================================================
@@ -574,7 +570,7 @@ export default function Hero({
                 <p
                   className="
                     mt-1
-                    text-[9px]
+                    text-[10px]
                     uppercase
                     tracking-[0.24em]
                     text-stone
@@ -598,7 +594,7 @@ export default function Hero({
                 <p
                   className="
                     mt-1
-                    text-[9px]
+                    text-[10px]
                     uppercase
                     tracking-[0.22em]
                     text-stone
@@ -646,18 +642,11 @@ export default function Hero({
           <h1
             className={[
               "hero-headline",
-              "font-display",
+              // Same display size as every big statement heading.
+              "type-display",
               "uppercase",
               "break-words",
-              "text-[7vw]",
-              "leading-[0.84]",
-              "tracking-[-0.055em]",
               "text-bone",
-
-              "sm:text-[4rem]",
-              "md:text-[5.25rem]",
-              "lg:text-[7rem]",
-              "xl:text-[8rem]",
             ].join(" ")}
           >
             {headline.map(
@@ -709,7 +698,7 @@ export default function Hero({
                   border-bone/70
                   px-3
                   py-2
-                  text-[8px]
+                  text-[10px]
                   font-medium
                   uppercase
                   tracking-[0.15em]
@@ -831,12 +820,12 @@ export default function Hero({
                           "absolute",
                           "-top-5",
                           "left-0",
-                          "text-[6px]",
+                          "text-[10px]",
                           "uppercase",
                           "tracking-[0.12em]",
 
                           "sm:-top-4",
-                          "sm:text-[8px]",
+                          "sm:text-[10px]",
 
                           active
                             ? "text-bone"
@@ -888,7 +877,7 @@ export default function Hero({
               <span
                 className="
                   hidden
-                  text-[9px]
+                  text-[10px]
                   uppercase
                   tracking-[0.18em]
                   text-stone

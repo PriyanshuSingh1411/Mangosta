@@ -25,7 +25,7 @@ export default function ContactPage() {
             <p className="label-technical mb-4 text-stone">
               06 — CONTACT
             </p>
-            <h1 className="font-display text-[15vw] uppercase leading-[0.82] tracking-[-0.05em] text-bone sm:text-[8rem] lg:text-[10rem]">
+            <h1 className="type-display uppercase text-bone">
               LET&apos;S
               <br />
               TALK.

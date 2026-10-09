@@ -209,7 +209,7 @@ useEffect(() => {
       `}</style>
       <Navigation />
 
-      <main className="order-print-area min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
+      <main className="order-print-area min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
 
           {/* BACK */}
@@ -263,7 +263,7 @@ useEffect(() => {
                 <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     {/* Order number: kept small so it fits on one line on phones */}
-                    <h1 className="font-display text-[22px] leading-tight tracking-tight text-bone [overflow-wrap:anywhere] sm:text-3xl">
+                    <h1 className="type-heading text-bone [overflow-wrap:anywhere]">
                       {order.id}
                     </h1>
 
@@ -378,11 +378,11 @@ useEffect(() => {
                               </div>
 
                               <div className="mt-4 flex items-center justify-between gap-4">
-                                <span className="label-technical text-stone">
+                                <span className="text-xs tabular-nums text-stone">
                                   {formatPrice(line.price)} / ITEM
                                 </span>
 
-                                <span className="font-mono text-sm text-bone">
+                                <span className="type-price text-sm text-bone">
                                   {formatPrice(
                                     line.price * line.quantity
                                   )}
@@ -445,7 +445,7 @@ useEffect(() => {
                           SUBTOTAL
                         </span>
 
-                        <span className="font-mono text-sm text-bone">
+                        <span className="type-price text-sm text-bone">
                           {formatPrice(order.subtotal)}
                         </span>
                       </div>
@@ -455,7 +455,7 @@ useEffect(() => {
                           SHIPPING
                         </span>
 
-                        <span className="font-mono text-sm text-bone">
+                        <span className="type-price text-sm text-bone">
                           {formatPrice(order.shipping)}
                         </span>
                       </div>
@@ -467,7 +467,7 @@ useEffect(() => {
                               COUPON — {order.couponCode}
                             </span>
 
-                            <span className="font-mono text-sm text-orange-400">
+                            <span className="type-price text-sm text-orange-400">
                               -{formatPrice(order.discount ?? 0)}
                             </span>
                           </div>
@@ -492,7 +492,7 @@ useEffect(() => {
                         TOTAL
                       </span>
 
-                      <span className="font-mono text-lg text-bone">
+                      <span className="type-price text-lg text-bone">
                         {formatPrice(order.total)}
                       </span>
                     </div>

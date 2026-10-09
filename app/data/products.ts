@@ -1,17 +1,20 @@
 import "server-only";
-import { getProducts as readProductsFromStore } from "@/app/lib/dataStore";
+import { getProducts as readStoredProducts } from "@/app/lib/dataStore";
+import { toPublicProduct } from "./productTypes";
 
-// Server Components only (this file imports "server-only" and the data
-// store hits the filesystem). Client components must NOT import from here -
-// instead fetch from /api/products, use the useProducts() client hook in
-// app/lib/useProducts.ts, or import types/formatPrice/slugify directly from
-// app/data/productTypes.ts (which has no server dependency). All paths read
-// through the same JSON store (data/products.json), which is also what the
-// admin panel edits, so the storefront and admin are always looking at the
-// same data.
+// Products for the storefront's Server Components (this file imports
+// "server-only"). Client components fetch /api/products instead (or use
+// the useProducts() hook in app/lib/useProducts.ts) and import types and
+// pure helpers from app/data/productTypes.ts. Both paths read the same
+// MongoDB products the admin panel edits, with stock numbers capped for
+// the public (see toPublicProduct).
 
 export type { ProductCategory, ProductColor, Product } from "./productTypes";
 export { formatPrice, slugify } from "./productTypes";
+
+async function readProductsFromStore() {
+  return (await readStoredProducts()).map(toPublicProduct);
+}
 
 export async function getAllProducts() {
   return readProductsFromStore();
@@ -20,17 +23,4 @@ export async function getAllProducts() {
 export async function getProductBySlug(slug: string) {
   const products = await readProductsFromStore();
   return products.find((p) => p.slug === slug);
-}
-
-export async function getFeaturedProducts() {
-  const products = await readProductsFromStore();
-  return products.filter((p) => p.isNew);
-}
-
-export async function getProductsByCategory(
-  category: import("./productTypes").ProductCategory | "all"
-) {
-  const products = await readProductsFromStore();
-  if (category === "all") return products;
-  return products.filter((p) => p.category === category);
 }

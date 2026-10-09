@@ -1,3 +1,31 @@
-import { NextRequest, NextResponse } from "next/server"; import clientPromise from "@/app/lib/mongodb"; import { getCurrentUser } from "@/app/lib/auth/session";
-export async function GET(){const user=await getCurrentUser();if(!user)return NextResponse.json({error:"Sign in required"},{status:401});const db=(await clientPromise).db("mangosta");const sizeProfile=await db.collection("sizeProfiles").findOne({userId:user.id},{projection:{_id:0,userId:0}});return NextResponse.json({sizeProfile:sizeProfile??null});}
-export async function PUT(req:NextRequest){const user=await getCurrentUser();if(!user)return NextResponse.json({error:"Sign in required"},{status:401});const b=await req.json().catch(()=>null);const profile={height:String(b?.height??"").trim(),weight:String(b?.weight??"").trim(),chest:String(b?.chest??"").trim(),waist:String(b?.waist??"").trim(),usualSize:String(b?.usualSize??"").trim(),fit:String(b?.fit??"").trim(),updatedAt:new Date().toISOString()};const db=(await clientPromise).db("mangosta");await db.collection("sizeProfiles").updateOne({userId:user.id},{$set:profile,$setOnInsert:{userId:user.id}},{upsert:true});return NextResponse.json({sizeProfile:profile});}
+import { NextRequest, NextResponse } from "next/server";
+import clientPromise from "@/app/lib/mongodb";
+import { getCurrentUser } from "@/app/lib/auth/session";
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const db = (await clientPromise).db("mangosta");
+  const sizeProfile = await db
+    .collection("sizeProfiles")
+    .findOne({ userId: user.id }, { projection: { _id: 0, userId: 0 } });
+  return NextResponse.json({ sizeProfile: sizeProfile ?? null });
+}
+export async function PUT(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const b = await req.json().catch(() => null);
+  const profile = {
+    height: String(b?.height ?? "").trim(),
+    weight: String(b?.weight ?? "").trim(),
+    chest: String(b?.chest ?? "").trim(),
+    waist: String(b?.waist ?? "").trim(),
+    usualSize: String(b?.usualSize ?? "").trim(),
+    fit: String(b?.fit ?? "").trim(),
+    updatedAt: new Date().toISOString(),
+  };
+  const db = (await clientPromise).db("mangosta");
+  await db
+    .collection("sizeProfiles")
+    .updateOne({ userId: user.id }, { $set: profile, $setOnInsert: { userId: user.id } }, { upsert: true });
+  return NextResponse.json({ sizeProfile: profile });
+}

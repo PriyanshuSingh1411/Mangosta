@@ -157,7 +157,7 @@ export default function OrdersPage() {
     <>
       <Navigation />
 
-      <main className="min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
+      <main className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <div className="mx-auto max-w-7xl">
 
           {/* HEADER */}
@@ -168,7 +168,7 @@ export default function OrdersPage() {
 
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
+                <h1 className="type-title text-bone">
                   YOUR ORDERS
                 </h1>
 
@@ -224,7 +224,7 @@ export default function OrdersPage() {
                 NO ORDERS YET
               </p>
 
-              <h2 className="font-display text-3xl tracking-tight text-bone">
+              <h2 className="type-heading text-bone">
                 Nothing here yet.
               </h2>
 
@@ -304,7 +304,7 @@ export default function OrdersPage() {
                           TOTAL
                         </p>
 
-                        <p className="mt-1 font-mono text-sm text-bone">
+                        <p className="mt-1 type-price text-sm text-bone">
                           {formatPrice(order.total)}
                         </p>
                       </div>
@@ -385,7 +385,7 @@ export default function OrdersPage() {
                                 ))}
                               </div>
 
-                              <p className="shrink-0 font-mono text-sm text-bone">
+                              <p className="shrink-0 type-price text-sm text-bone">
                                 {formatPrice(
                                   line.price * line.quantity
                                 )}

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import type { Product } from "@/app/data/productTypes";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useWishlistStore } from "@/app/store/useWishlistStore";
 import ProductCard from "./ProductCard";
+import { useStoredText } from "@/app/lib/useBrowserValue";
 
 const RECENT_KEY = "mangosta-recently-viewed";
 
@@ -21,19 +22,19 @@ export default function PersonalizedHome({ products }: { products: Product[] }) 
   const { user } = useAuth();
   const wishlistIds = useWishlistStore((state) => state.productIds);
   const loadWishlist = useWishlistStore((state) => state.load);
-  const [recentIds, setRecentIds] = useState<string[]>([]);
+  // Recently viewed products, saved in this browser.
+  const recentText = useStoredText(RECENT_KEY, "[]");
+  const recentIds = useMemo<string[]>(() => {
+    try {
+      const parsed: unknown = JSON.parse(recentText);
+      return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+    } catch {
+      return [];
+    }
+  }, [recentText]);
 
   useEffect(() => {
     if (user) void loadWishlist(user.id);
-    try {
-      setRecentIds(
-        JSON.parse(
-          window.localStorage.getItem(RECENT_KEY) || "[]"
-        ) as string[]
-      );
-    } catch {
-      setRecentIds([]);
-    }
   }, [user, loadWishlist]);
 
   const recent = useMemo(
@@ -75,16 +76,17 @@ export default function PersonalizedHome({ products }: { products: Product[] }) 
   }
 
   return (
-    <section className="border-y border-line bg-charcoal/40 px-5 py-16 sm:px-8 lg:py-20">
-      <div className="mx-auto max-w-[1600px]">
+    <section className="border-y border-line bg-charcoal/40 py-16 sm:py-20">
+      {/* Same width, side margins and header layout as THE DROP / TRENDING */}
+      <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-8 lg:px-12">
         {recent.length > 0 && (
           <>
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="label-technical text-mango">
+            <div className="mb-10 flex items-end justify-between gap-6 sm:mb-14">
+              <div className="min-w-0">
+                <p className="label-technical mb-3 !text-mango">
                   WELCOME BACK
                 </p>
-                <h2 className="mt-2 font-display text-4xl tracking-tight text-bone sm:text-5xl">
+                <h2 className="type-title uppercase text-bone">
                   CONTINUE EXPLORING.
                 </h2>
                 <p className="mt-3 text-sm text-stone">
@@ -94,13 +96,13 @@ export default function PersonalizedHome({ products }: { products: Product[] }) 
 
               <Link
                 href="/shop"
-                className="hidden text-xs tracking-[0.15em] text-stone hover:text-bone sm:block"
+                className="hidden shrink-0 border border-line-strong px-4 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-bone transition-colors hover:border-bone hover:bg-bone hover:text-void sm:inline-flex"
               >
                 SHOP ALL →
               </Link>
             </div>
 
-            <div className={`mt-8 ${GRID_CLASSES}`}>
+            <div className={GRID_CLASSES}>
               {recent.slice(0, 4).map((product) => (
                 <ProductCard
                   key={product.id}
@@ -113,9 +115,9 @@ export default function PersonalizedHome({ products }: { products: Product[] }) 
 
         {picks.length > 0 && (
           <div className="mt-16 border-t border-line pt-12">
-            <p className="label-technical text-stone">
+            <h3 className="type-heading uppercase text-bone">
               BECAUSE YOU LIKE THESE
-            </p>
+            </h3>
 
             <div className={`mt-6 ${GRID_CLASSES}`}>
               {picks.map((product) => (

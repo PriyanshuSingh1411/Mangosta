@@ -57,6 +57,28 @@ span {
   overflow-wrap: break-word;
 }
 
+/* Grid columns shrink to the screen instead of growing to fit their
+   widest content (a long product name could otherwise push a whole
+   page wider than a phone). */
+.grid > * {
+  min-width: 0;
+}
+
+/* Browsers give <fieldset> a minimum width equal to its content, which
+   stops wide tables inside it from scrolling within their own box. */
+fieldset {
+  min-width: 0;
+}
+
+/* Form fields never push their box wider than the screen
+   (by default a text field asks for ~20 characters of width). */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* iOS Safari zooms the page when a focused field is under 16px.
    Keep text fields at 16px on touch-size screens so forms never jump. */
 @media (max-width: 1023px) {
@@ -170,6 +192,52 @@ body {
   display: none !important;
 }
 
+/* ============================================================
+   TYPE SCALE — one set of sizes for every page.
+   Each size grows smoothly from phones (320px) to desktop, so
+   headings never overflow a small screen and never look
+   different from page to page.
+
+   type-display  big statement headings (home hero, About,
+                 Contact, 404)                   40px → 120px
+   type-title    page titles + home section titles
+                 (Shop, Bag, Orders, Account, THE DROP…)
+                                                 26px → 48px
+   type-heading  smaller headings (order number, panels,
+                 modal titles)                   20px → 30px
+   type-price    every price: bold body font, digits line up
+   ============================================================ */
+@utility type-display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.5rem, 10vw, 7.5rem);
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+}
+
+@utility type-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(1.625rem, 5vw, 3rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+@utility type-heading {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(1.25rem, 3vw, 1.875rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+@utility type-price {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 /* Utility: eyebrow / technical label */
 .label-technical {
   font-family: var(--font-mono);
@@ -275,14 +343,6 @@ input:focus-visible,
 /* Phones held sideways and other very short viewports: shrink the
    headline, drop the paragraph and keep everything inside the frame. */
 @media (max-height: 560px) and (orientation: landscape) {
-  .hero-frame {
-    min-height: 100svh;
-  }
-
-  .hero-top-meta {
-    top: 84px !important;
-  }
-
   .hero-content {
     bottom: 4.75rem !important;
   }

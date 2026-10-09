@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "defaultShipping": 10,
-  "freeShippingEnabled": true,
+  "freeShippingEnabled": false,
   "freeShippingThreshold": 10,
   "rules": [
     {

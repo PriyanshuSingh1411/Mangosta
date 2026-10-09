@@ -128,11 +128,11 @@
     }
   ],
   "newsletterEnabled": true,
-  "newsletterSubject": "Gand marane ke liye",
-  "newsletterHeading": "Welcome to the khotha ",
-  "newsletterBody": "Kya re lavde gand mara",
-  "newsletterButtonText": "",
-  "newsletterButtonUrl": "/",
+  "newsletterSubject": "Welcome to MANGOSTA WORLD",
+  "newsletterHeading": "YOU'RE IN.",
+  "newsletterBody": "Thanks for joining MANGOSTA WORLD. You'll be the first to hear about new drops, restocks and members-only offers.",
+  "newsletterButtonText": "SHOP THE DROP",
+  "newsletterButtonUrl": "/shop",
   "newsletterFooterText": "MANGOSTA — WEAR YOUR ATTITUDE.",
   "newsletterNotificationEnabled": false,
   "newsletterNotificationEmail": "mangostateam@gmail.com"

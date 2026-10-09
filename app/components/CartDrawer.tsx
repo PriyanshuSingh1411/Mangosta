@@ -11,6 +11,7 @@ import {
   getProductSalePrice,
   hasProductDiscount,
   getProductStrikethroughPrice,
+  getProductSavingsPercent,
 } from "@/app/data/productTypes";
 import ProductPlaceholderArt from "./ProductPlaceholderArt";
 import { useCursorHover } from "@/app/lib/useCursorHover";
@@ -138,10 +139,9 @@ export default function CartDrawer() {
                       const hasDiscount =
                         hasProductDiscount(line.product);
 
+                      // "SAVE x%" against the crossed-out price shown next to it.
                       const discountPercent =
-                        Number(
-                          line.product.discountPercent
-                        ) || 0;
+                        getProductSavingsPercent(line.product) ?? 0;
 
                       const strikethroughPrice = getProductStrikethroughPrice(line.product);
                       const originalLinePrice =
@@ -263,22 +263,22 @@ export default function CartDrawer() {
                               {/* PRICE */}
                               <div className="flex flex-col items-end">
                                 {strikethroughPrice !== null && (
-                                  <span className="font-mono text-[11px] text-stone-dark line-through">
+                                  <span className="font-body tabular-nums text-[11px] text-stone-dark line-through">
                                     {formatPrice(
                                       originalLinePrice
                                     )}
                                   </span>
                                 )}
 
-                                <span className="font-mono text-sm text-bone-dim">
+                                <span className="type-price text-sm text-bone-dim">
                                   {formatPrice(
                                     saleLinePrice
                                   )}
                                 </span>
 
-                                {hasDiscount && (
-                                  <span className="mt-1 text-[9px] font-medium tracking-[0.12em] text-mango">
-                                    {discountPercent}% OFF
+                                {hasDiscount && discountPercent > 0 && (
+                                  <span className="mt-1 inline-block w-fit rounded-sm bg-mango/10 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-mango">
+                                    Save {discountPercent}%
                                   </span>
                                 )}
                               </div>
@@ -297,7 +297,7 @@ export default function CartDrawer() {
                       SUBTOTAL
                     </span>
 
-                    <span className="font-mono text-base text-bone">
+                    <span className="type-price text-base text-bone">
                       {formatPrice(subtotal())}
                     </span>
                   </div>

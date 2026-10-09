@@ -9,7 +9,7 @@ import ProductQuickAddModal from "@/app/components/ProductQuickAddModal";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useWishlistStore } from "@/app/store/useWishlistStore";
 import { useProducts } from "@/app/lib/useProducts";
-import { getProductSalePrice } from "@/app/data/productTypes";
+import { getProductSalePrice, LOW_STOCK_THRESHOLD } from "@/app/data/productTypes";
 
 interface WishlistItem {
   productId: string;
@@ -17,6 +17,26 @@ interface WishlistItem {
   addedAt: string;
   priceAtSave: number;
   inventoryAtSave: number;
+}
+
+type WishlistData = { items: WishlistItem[]; folders: string[] };
+
+/** The signed-in customer's saved items and folders (null if it fails). */
+async function fetchWishlist(): Promise<WishlistData | null> {
+  const response = await fetch("/api/wishlist", {
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) return null;
+
+  return {
+    items: Array.isArray(data?.items) ? data.items : [],
+    folders:
+      Array.isArray(data?.folders) && data.folders.length > 0
+        ? data.folders
+        : ["All saved"],
+  };
 }
 
 export default function WishlistPage() {
@@ -33,28 +53,25 @@ export default function WishlistPage() {
   const [quickProductId, setQuickProductId] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState("");
 
-  const refresh = async () => {
-    const response = await fetch("/api/wishlist", {
-      cache: "no-store",
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (response.ok) {
-      setItems(Array.isArray(data?.items) ? data.items : []);
-      setFolders(
-        Array.isArray(data?.folders) && data.folders.length > 0
-          ? data.folders
-          : ["All saved"]
-      );
-    }
+  const showWishlist = (data: WishlistData) => {
+    setItems(data.items);
+    setFolders(data.folders);
   };
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
 
     void load(user.id);
-    void refresh();
+    fetchWishlist()
+      .then((data) => {
+        if (!cancelled && data) showWishlist(data);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, load]);
 
   const saved = useMemo(
@@ -73,7 +90,7 @@ export default function WishlistPage() {
         const product = products.find((p) => p.id === item.productId);
         const stock = Number(product?.inventory) || 0;
 
-        return stock > 0 && stock <= 2;
+        return stock > 0 && stock <= LOW_STOCK_THRESHOLD;
       });
     }
 
@@ -104,7 +121,7 @@ export default function WishlistPage() {
     const product = products.find((p) => p.id === item.productId);
     const stock = Number(product?.inventory) || 0;
 
-    return stock > 0 && stock <= 2;
+    return stock > 0 && stock <= LOW_STOCK_THRESHOLD;
   }).length;
 
   const priceDrops = items.filter((item) => {
@@ -147,7 +164,7 @@ export default function WishlistPage() {
 
       <main
         id="main-content"
-        className="min-h-screen bg-void px-5 pb-28 pt-32 sm:px-8 sm:pt-40"
+        className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12"
       >
         <div className="mx-auto max-w-[1600px]">
           <p className="label-technical mb-5">
@@ -156,7 +173,7 @@ export default function WishlistPage() {
 
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-7">
             <div>
-              <h1 className="font-display text-5xl tracking-tight text-bone sm:text-7xl">
+              <h1 className="type-title text-bone">
                 WISHLIST
               </h1>
 
@@ -228,7 +245,7 @@ export default function WishlistPage() {
                     SAVED
                   </p>
 
-                  <p className="mt-2 font-display text-3xl">
+                  <p className="mt-2 type-heading">
                     {items.length}
                   </p>
 
@@ -265,7 +282,7 @@ export default function WishlistPage() {
                     LOW STOCK
                   </p>
 
-                  <p className="mt-2 font-display text-3xl">
+                  <p className="mt-2 type-heading">
                     {lowStock}
                   </p>
 
@@ -302,7 +319,7 @@ export default function WishlistPage() {
                     PRICE DROPS
                   </p>
 
-                  <p className="mt-2 font-display text-3xl">
+                  <p className="mt-2 type-heading">
                     {priceDrops}
                   </p>
 
@@ -382,23 +399,11 @@ export default function WishlistPage() {
                             <ProductCard product={product} />
 
                             {Number(product.inventory) > 0 &&
-                              Number(product.inventory) <= 2 && (
+                              Number(product.inventory) <= LOW_STOCK_THRESHOLD && (
                                 <p className="mt-2 px-2 text-[10px] font-medium tracking-[0.14em] text-mango sm:px-2.5">
                                   ONLY {product.inventory} LEFT
                                 </p>
                               )}
-
-                            <div className="mt-3 flex items-center px-2 sm:px-2.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setQuickProductId(product.id)
-                                }
-                                className="w-full border border-line-strong px-3 py-2 text-[10px] tracking-[0.12em] text-bone transition-colors hover:border-bone hover:bg-bone hover:text-void"
-                              >
-                                MOVE TO BAG
-                              </button>
-                            </div>
                           </div>
                         </div>
                       )

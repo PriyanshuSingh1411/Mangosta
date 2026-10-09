@@ -11,9 +11,10 @@ import {
   getVariantStock,
   hasProductDiscount,
   getProductStrikethroughPrice,
+  getProductSavingsPercent,
 } from "@/app/data/productTypes";
 import type { ReviewSummary } from "@/app/data/storeTypes";
-import { maxAllowedForLine, useCartStore } from "@/app/store/useCartStore";
+import { bagLimitMessage, maxAllowedForLine, useCartStore } from "@/app/store/useCartStore";
 import { useAuth } from "@/app/components/AuthProvider";
 import ProductPlaceholderArt from "./ProductPlaceholderArt";
 import WishlistButton from "./WishlistButton";
@@ -30,7 +31,7 @@ const RECENT_KEY = "mangosta-recently-viewed";
  *
  *   [ image ............ ♡ ]
  *   Product name (one line)
- *   ₹3,299.00  ₹2,609.10  SAVE 10%        +
+ *   ₹3,299.00  ₹2,609.10  SAVE 21%        +   (% vs the crossed-out price)
  *   ■ ■ ■ +2                        ★ 4.5 (12)
  */
 export default function ProductCard({
@@ -74,7 +75,8 @@ export default function ProductCard({
   const salePrice = getProductSalePrice(product);
   const strikethroughPrice = getProductStrikethroughPrice(product);
   const hasDiscount = hasProductDiscount(product);
-  const discountPercent = Math.round(Number(product.discountPercent) || 0);
+  // "SAVE x%" against the crossed-out price shown next to it.
+  const discountPercent = getProductSavingsPercent(product) ?? 0;
   const showStrikethrough =
     strikethroughPrice !== null && strikethroughPrice > salePrice;
   const showSave = hasDiscount && discountPercent > 0;
@@ -121,8 +123,9 @@ export default function ProductCard({
     const state = useCartStore.getState();
     const lineId = `${product.id}-${selectedSize}-${colorName}`;
     const inBag = state.lines.find((line) => line.lineId === lineId)?.quantity ?? 0;
-    if (inBag + 1 > maxAllowedForLine(state.lines, product, selectedSize, colorName, lineId)) {
-      setStockError(inBag > 0 ? "All available units are already in your bag." : "This size just sold out.");
+    const allowed = maxAllowedForLine(state.lines, product, selectedSize, colorName, lineId);
+    if (inBag + 1 > allowed) {
+      setStockError(bagLimitMessage(inBag, allowed));
       return;
     }
 
@@ -380,7 +383,7 @@ export default function ProductCard({
                   ADD TO BAG
                 </p>
 
-                <h2 className="font-display text-2xl uppercase tracking-tight">
+                <h2 className="type-heading uppercase">
                   {product.name}
                 </h2>
 
@@ -418,6 +421,7 @@ export default function ProductCard({
                   transition-colors
                   hover:border-bone
                   hover:text-bone
+                  
                 "
               >
                 ×

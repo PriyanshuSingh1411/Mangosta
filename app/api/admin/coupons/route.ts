@@ -183,6 +183,18 @@ function normalizeCoupon(
 
     usageCount,
 
+    // Uses per customer account (0 = no per-customer limit). A coupon sent
+    // without it keeps its saved value; a new one gets 1.
+    perCustomerLimit:
+      input.perCustomerLimit === undefined
+        ? existing?.perCustomerLimit ?? 1
+        : normalizeInteger(input.perCustomerLimit, 1),
+
+    firstOrderOnly:
+      typeof input.firstOrderOnly === "boolean"
+        ? input.firstOrderOnly
+        : existing?.firstOrderOnly ?? false,
+
   };
 }
 
@@ -276,6 +288,13 @@ function validateCouponData(
       coupon.usageCount > coupon.usageLimit
     ) {
       return `Usage count for ${coupon.code} cannot exceed its usage limit.`;
+    }
+
+    if (
+      coupon.perCustomerLimit < 0 ||
+      !Number.isInteger(coupon.perCustomerLimit)
+    ) {
+      return `Uses per customer for ${coupon.code} is invalid.`;
     }
 
     /*

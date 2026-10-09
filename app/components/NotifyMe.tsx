@@ -37,9 +37,11 @@ export default function NotifyMe({
       if (!response.ok) throw new Error(data?.error || "Couldn't save your request.");
       setState("done");
       setMessage(
-        data?.alreadyWaiting
-          ? "You're already on the list — we'll email you."
-          : "Done — we'll email you when it's back."
+        data?.confirmationSent
+          ? "Check your inbox to confirm the alert (if you've confirmed it before, you're all set)."
+          : data?.alreadyWaiting
+            ? "You're already on the list — we'll email you."
+            : "Done — we'll email you when it's back."
       );
     } catch (error) {
       setState("idle");

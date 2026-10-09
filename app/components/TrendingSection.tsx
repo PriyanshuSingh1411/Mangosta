@@ -24,7 +24,7 @@ export default function TrendingSection({
         <div className="mb-10 flex items-end justify-between gap-6 sm:mb-14">
           <div>
 
-            <h2 className="font-display text-4xl uppercase tracking-[-0.04em] text-bone sm:text-6xl">
+            <h2 className="type-title uppercase text-bone">
               TRENDING
             </h2>
           </div>

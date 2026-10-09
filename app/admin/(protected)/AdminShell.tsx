@@ -51,11 +51,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const activeItem = NAV_ITEMS.find((item) => isActive(item.href)) ?? USER_NAV_ITEMS.find((item) => isActive(item.href));
 
-  // Close the drawer whenever the route changes and keep User expanded for every User page.
-  useEffect(() => {
+  // Close the drawer whenever the route changes and keep User expanded for
+  // every User page (state adjusted while rendering, as React recommends
+  // for changes that follow a prop, instead of in an effect).
+  const [shownPath, setShownPath] = useState(pathname);
+  if (pathname !== shownPath) {
+    setShownPath(pathname);
     setMenuOpen(false);
     if (isUserRoute) setUserExpanded(true);
-  }, [pathname, isUserRoute]);
+  }
 
   // While the drawer is open on a phone: lock page scroll and let Escape close it.
   useEffect(() => {

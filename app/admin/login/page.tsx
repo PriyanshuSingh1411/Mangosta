@@ -43,7 +43,7 @@ export default function AdminLoginPage() {
           </div>
           <div>
             <p className="label-technical mb-2">MANGOSTA ADMIN</p>
-            <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-bone">Sign in</h1>
+            <h1 className="type-heading text-bone">Sign in</h1>
           </div>
         </div>
 

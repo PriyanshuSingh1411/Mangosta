@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { noBrowserSubscription } from "@/app/lib/useBrowserValue";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -18,6 +19,10 @@ type Coupon = {
   expiresAt: string;
   usageLimit: number;
   usageCount: number;
+  /** Uses per customer account (0 = no per-customer limit). */
+  perCustomerLimit: number;
+  /** Only for a customer's first order (cancelled orders don't count). */
+  firstOrderOnly: boolean;
   /** Set when the admin clicks "Reset usage"; the server then sets usage to 0. */
   resetUsage?: boolean;
 };
@@ -33,6 +38,8 @@ const EMPTY_COUPON: Omit<Coupon, "id"> = {
   expiresAt: "",
   usageLimit: 0,
   usageCount: 0,
+  perCustomerLimit: 1,
+  firstOrderOnly: false,
 };
 
 const inputClass =
@@ -211,6 +218,10 @@ function normalizeCoupon(coupon: Coupon): Coupon {
         Number(coupon.usageCount) || 0
       )
     ),
+    perCustomerLimit: Number.isFinite(Number(coupon.perCustomerLimit))
+      ? Math.max(0, Math.floor(Number(coupon.perCustomerLimit)))
+      : 1,
+    firstOrderOnly: Boolean(coupon.firstOrderOnly),
   };
 }
 
@@ -235,11 +246,9 @@ export default function AdminCouponsPage() {
     null
   );
 
-  const [today, setToday] = useState("");
-
-  useEffect(() => {
-    setToday(getLocalDateValue());
-  }, []);
+  // Today's date in the admin's own time zone (browser only; empty while
+  // rendering on the server, as before).
+  const today = useSyncExternalStore(noBrowserSubscription, getLocalDateValue, () => "");
 
   useEffect(() => {
     let cancelled = false;
@@ -565,7 +574,7 @@ export default function AdminCouponsPage() {
           COUPONS
         </p>
 
-        <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-bone">
+        <h1 className="type-heading text-bone">
           Coupons
         </h1>
 
@@ -585,7 +594,7 @@ export default function AdminCouponsPage() {
             COUPONS
           </p>
 
-          <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-bone">
+          <h1 className="type-heading text-bone">
             Coupons
           </h1>
 
@@ -653,7 +662,7 @@ export default function AdminCouponsPage() {
                       )}
                     </p>
 
-                    <h2 className="font-display text-xl text-bone">
+                    <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">
                       {coupon.code ||
                         "NEW COUPON"}
                     </h2>
@@ -921,6 +930,58 @@ export default function AdminCouponsPage() {
                         0 = unlimited uses.
                       </span>
                     </label>
+
+                    {/* USES PER CUSTOMER */}
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-xs text-stone">
+                        Uses per customer
+                      </span>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={coupon.perCustomerLimit}
+                        onChange={(e) =>
+                          updateCoupon(index, {
+                            perCustomerLimit: Math.max(
+                              0,
+                              Math.floor(Number(e.target.value) || 0)
+                            ),
+                          })
+                        }
+                        className={inputClass}
+                      />
+
+                      <span className="text-xs text-stone-dark">
+                        How many orders one customer can use it on. 0 = no per-customer limit.
+                      </span>
+                    </label>
+
+                    {/* FIRST ORDER ONLY */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs text-stone">
+                        First order only
+                      </span>
+
+                      <label className="flex min-h-[42px] items-center gap-3 text-sm text-bone-dim">
+                        <input
+                          type="checkbox"
+                          checked={coupon.firstOrderOnly}
+                          onChange={(e) =>
+                            updateCoupon(index, {
+                              firstOrderOnly: e.target.checked,
+                            })
+                          }
+                          className="h-4 w-4 accent-[color:var(--color-mango)]"
+                        />
+                        Only on a customer&apos;s first order
+                      </label>
+
+                      <span className="text-xs text-stone-dark">
+                        Cancelled orders don&apos;t count as a first order.
+                      </span>
+                    </div>
                   </div>
 
                   {/* DATE PICKERS */}

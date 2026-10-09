@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import clientPromise from "@/app/lib/mongodb";
 import {
   hashOtp,
@@ -7,9 +8,26 @@ import {
   isValidMobile,
   isValidEmail,
   OTP_MAX_ATTEMPTS,
+  OTP_RATE_WINDOW_MS,
+  OTP_VERIFY_LIMIT_PER_EMAIL_AND_IP,
+  OTP_VERIFY_LIMIT_PER_IP,
   type OtpPurpose,
 } from "@/app/lib/auth/otp";
 import { createSession } from "@/app/lib/auth/session";
+import {
+  consumeRateLimits,
+  describeWait,
+  getClientIp,
+} from "@/app/lib/rateLimit";
+
+/** Both are hex SHA-256 HMACs; compared in constant time. */
+function hashesMatch(stored: unknown, expected: string): boolean {
+  if (typeof stored !== "string" || stored.length !== expected.length) {
+    return false;
+  }
+
+  return timingSafeEqual(Buffer.from(stored), Buffer.from(expected));
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,10 +49,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Enter the 6-digit OTP." }, { status: 400 });
     }
 
+    // Per network, and per email from that network. Guesses per email in
+    // total are capped by the code limits (see OTP_SEND_LIMIT_PER_EMAIL).
+    const clientIp = getClientIp(req);
+    const rate = await consumeRateLimits([
+      {
+        key: `otp-verify:ip:${clientIp}`,
+        limit: OTP_VERIFY_LIMIT_PER_IP,
+        windowMs: OTP_RATE_WINDOW_MS,
+      },
+      {
+        key: `otp-verify:email-ip:${email}|${clientIp}`,
+        limit: OTP_VERIFY_LIMIT_PER_EMAIL_AND_IP,
+        windowMs: OTP_RATE_WINDOW_MS,
+      },
+    ]);
+
+    if (!rate.allowed) {
+      return NextResponse.json(
+        {
+          error: `Too many attempts. Please try again in ${describeWait(rate.retryAfterSeconds)}.`,
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rate.retryAfterSeconds) },
+        }
+      );
+    }
+
     const client = await clientPromise;
     const db = client.db("mangosta");
+    const otpVerifications = db.collection("otpVerifications");
 
-    const verification = await db.collection("otpVerifications").findOne(
+    const verification = await otpVerifications.findOne(
       { email, purpose, used: false },
       { sort: { createdAt: -1 } }
     );
@@ -44,35 +91,61 @@ export async function POST(req: NextRequest) {
     }
 
     if (new Date(verification.expiresAt).getTime() <= Date.now()) {
-      await db.collection("otpVerifications").updateOne(
+      await otpVerifications.updateOne(
         { _id: verification._id },
         { $set: { used: true } }
       );
       return NextResponse.json({ error: "OTP has expired. Please request a new one." }, { status: 400 });
     }
 
-    const attempts = Number(verification.attempts || 0);
+    const maxAttempts = Number(verification.maxAttempts || OTP_MAX_ATTEMPTS);
 
-    if (attempts >= Number(verification.maxAttempts || OTP_MAX_ATTEMPTS)) {
-      await db.collection("otpVerifications").updateOne(
-        { _id: verification._id },
+    // Reserve this attempt in ONE database step BEFORE comparing: the
+    // counter only goes up while it is below the limit, so however many
+    // guesses arrive at the same moment, at most maxAttempts get checked.
+    const reserved = await otpVerifications.findOneAndUpdate(
+      {
+        _id: verification._id,
+        used: false,
+        $or: [
+          { attempts: { $lt: maxAttempts } },
+          { attempts: { $exists: false } },
+        ],
+      },
+      { $inc: { attempts: 1 } },
+      { returnDocument: "after" }
+    );
+
+    if (!reserved) {
+      // No attempt left, or the code was used / replaced a moment ago.
+      await otpVerifications.updateOne(
+        { _id: verification._id, used: false },
         { $set: { used: true } }
       );
+
+      const latest = await otpVerifications.findOne(
+        { _id: verification._id },
+        { projection: { verifiedAt: 1 } }
+      );
+
+      if (latest?.verifiedAt) {
+        return NextResponse.json({ error: "This OTP has already been used. Please request a new one." }, { status: 400 });
+      }
+
       return NextResponse.json({ error: "Too many incorrect attempts. Please request a new OTP." }, { status: 429 });
     }
 
-    const expectedHash = hashOtp(email, otp);
+    const attemptsUsed = Number(reserved.attempts || 0);
 
-    if (verification.otpHash !== expectedHash) {
-      await db.collection("otpVerifications").updateOne(
-        { _id: verification._id },
-        { $inc: { attempts: 1 } }
-      );
+    if (!hashesMatch(reserved.otpHash, hashOtp(email, otp))) {
+      const remaining = Math.max(0, maxAttempts - attemptsUsed);
 
-      const remaining = Math.max(
-        0,
-        Number(verification.maxAttempts || OTP_MAX_ATTEMPTS) - attempts - 1
-      );
+      if (remaining === 0) {
+        await otpVerifications.updateOne(
+          { _id: verification._id, used: false },
+          { $set: { used: true } }
+        );
+      }
 
       return NextResponse.json(
         { error: remaining > 0 ? `Incorrect OTP. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` : "Incorrect OTP. Please request a new code." },
@@ -80,18 +153,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await db.collection("otpVerifications").updateOne(
-      { _id: verification._id },
+    // Correct code: use it up in one step, so it signs in exactly once
+    // even if the same correct code is sent twice at the same moment.
+    const consumed = await otpVerifications.updateOne(
+      { _id: verification._id, used: false },
       { $set: { used: true, verifiedAt: new Date() } }
     );
+
+    if (consumed.modifiedCount !== 1) {
+      return NextResponse.json({ error: "OTP is invalid or has expired. Please request a new one." }, { status: 400 });
+    }
 
     const now = new Date().toISOString();
     let user = await db.collection("users").findOne({ email });
 
-    if (purpose === "signup") {
-      if (user) {
+    if (purpose === "signup" && !user) {
+      // New account. The mobile number must not belong to another account
+      // (checked only now, after the email is proven, so the sign-up form
+      // can't be used to look up whose number is registered).
+      const newMobile = normalizeMobile(verification.mobile || mobile || body?.mobile);
+      const mobileTaken = await db.collection("users").findOne({ mobile: newMobile });
+      if (mobileTaken) {
         return NextResponse.json(
-          { error: "An account already exists with this email. Please sign in instead." },
+          {
+            error:
+              "This mobile number is already linked to another MANGOSTA account. Request a new code with a different number, or sign in with that account's email.",
+          },
           { status: 409 }
         );
       }
@@ -101,7 +188,7 @@ export async function POST(req: NextRequest) {
         email,
         firstName: String(verification.firstName || body?.firstName || "").trim(),
         lastName: String(verification.lastName || body?.lastName || "").trim(),
-        mobile: normalizeMobile(verification.mobile || mobile || body?.mobile),
+        mobile: newMobile,
         emailVerified: true,
         createdAt: now,
         lastLoginAt: now,
@@ -109,10 +196,12 @@ export async function POST(req: NextRequest) {
 
       user = await db.collection("users").findOne({ _id: result.insertedId });
     } else {
+      // Sign in - or "sign up" with an email that already has an account:
+      // the code proved they own the email, so they are simply signed in.
       if (!user) {
         return NextResponse.json(
-          { error: "No account was found with this email. Please sign up first." },
-          { status: 404 }
+          { error: "OTP is invalid or has expired. Please request a new one." },
+          { status: 400 }
         );
       }
 
@@ -146,7 +235,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("POST /api/auth/verify-otp failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to verify OTP." },
+      { error: "Unable to verify the code right now. Please try again in a moment." },
       { status: 500 }
     );
   }

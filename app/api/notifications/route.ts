@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/app/lib/auth/session";
-import { getOrders } from "@/app/lib/dataStore";
+import { getOrdersForCustomer } from "@/app/lib/dataStore";
 import { getProducts } from "@/app/lib/dataStore";
 import { getReviewedProductIds } from "@/app/lib/reviews";
 import { getWishlistItems, updateWishlistInventorySnapshot } from "@/app/lib/wishlist";
 import { getCustomerTickets } from "@/app/lib/support";
-import { getProductSalePrice } from "@/app/data/productTypes";
+import { getProductSalePrice, LOW_STOCK_THRESHOLD, PUBLIC_STOCK_CAP } from "@/app/data/productTypes";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export async function GET() {
 
   const [wishlist, orders, reviewedIds, products, tickets] = await Promise.all([
     getWishlistItems(user.id),
-    getOrders(),
+    getOrdersForCustomer({ userId: user.id, email: user.email }, { limit: 12 }),
     getReviewedProductIds(user.id),
     getProducts(),
     getCustomerTickets(user.id),
@@ -53,9 +53,12 @@ export async function GET() {
       });
     }
 
+    // Ids carry the stock as shown on the storefront (capped), never the real count.
+    const shownStock = Math.min(PUBLIC_STOCK_CAP, currentStock);
+
     if (item.inventoryAtSave <= 0 && currentStock > 0) {
       notifications.push({
-        id: `stock-${item.productId}-${currentStock}`,
+        id: `stock-${item.productId}-${shownStock}`,
         type: "wishlist",
         title: `${product.name} is back in stock`,
         body: "The piece you saved is available again.",
@@ -65,7 +68,7 @@ export async function GET() {
       });
     }
 
-    if (currentStock > 0 && currentStock <= 2) {
+    if (currentStock > 0 && currentStock <= LOW_STOCK_THRESHOLD) {
       notifications.push({
         id: `low-${item.productId}-${currentStock}`,
         type: "wishlist",
@@ -80,8 +83,8 @@ export async function GET() {
     await updateWishlistInventorySnapshot(user.id, item.productId, currentStock);
   }
 
-  const customerEmail = user.email.trim().toLowerCase();
-  const customerOrders = orders.filter((order) => order.customer.email.trim().toLowerCase() === customerEmail).slice(0, 12);
+  // Already only this customer's 12 most recent orders.
+  const customerOrders = orders;
   for (const order of customerOrders) {
     if (order.status === "shipped") {
       notifications.push({

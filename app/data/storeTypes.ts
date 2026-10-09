@@ -259,6 +259,23 @@ export interface ReturnRequestItem {
   exchangeColor?: string;
 }
 
+/** One returned item's refund: its share of what was actually paid. */
+export interface ReturnRefundItem {
+  lineId: string;
+  productName: string;
+  quantity: number;
+  /** Paid for these units: sale price minus their share of the order discount. */
+  amount: number;
+}
+
+export interface ReturnRefund {
+  items: ReturnRefundItem[];
+  itemsTotal: number;
+  /** The order's shipping charge, refunded only when the whole order is returned. */
+  shipping: number;
+  total: number;
+}
+
 export interface ReturnRequest {
   id: string;
   orderId: string;
@@ -272,6 +289,21 @@ export interface ReturnRequest {
   adminNote: string;
   /** Stock was added back when the items were received. */
   restocked: boolean;
+  /**
+   * Exchanges: the replacement unit(s) are currently taken out of stock
+   * (set when approved; cleared if the request is rejected afterwards).
+   */
+  exchangeStockTaken?: boolean;
+  /**
+   * Returns only: what the customer gets back, worked out from what they
+   * actually paid (see calculateOrderRefunds). Added when requests are
+   * loaded; not stored.
+   */
+  refund?: ReturnRefund;
+  /** Returns only: the amount refunded, saved when marked refunded. */
+  refundedAmount?: number;
+  /** Returns only: the refund breakdown as it was when marked refunded. */
+  refundSnapshot?: ReturnRefund;
   createdAt: string;
   updatedAt: string;
 }
@@ -302,7 +334,6 @@ export interface Review {
   id: string;
   productId: string;
   userId: string;
-  /** "Ravi P." — first name + last initial. */
   authorName: string;
   rating: number;
   title: string;
@@ -420,6 +451,50 @@ export const DEFAULT_EMAIL_AUTOMATION: EmailAutomationConfig = {
 };
 
 // ============================================================
+// BUSINESS & LEGAL DETAILS (Admin → Settings → Business & legal)
+// ============================================================
+
+/**
+ * Shown on the Privacy Policy, Terms and FAQ pages. Indian e-commerce rules
+ * ask online stores to show their legal name, address, customer-care
+ * contact and a grievance officer. Empty fields are simply not shown.
+ */
+export interface BusinessDetails {
+  /** Registered business / legal name, e.g. "Mangosta Clothing" or the owner's name. */
+  legalName: string;
+  /** Full postal address of the business. */
+  address: string;
+  /** Customer-care email. */
+  email: string;
+  /** Customer-care phone number. */
+  phone: string;
+  /** e.g. "Mon–Sat, 10 am – 6 pm". */
+  supportHours: string;
+  /** Optional GST number. */
+  gstin: string;
+  grievanceOfficerName: string;
+  grievanceOfficerDesignation: string;
+  grievanceOfficerEmail: string;
+  grievanceOfficerPhone: string;
+  /** City whose courts handle disputes (Terms → governing law). */
+  jurisdictionCity: string;
+}
+
+export const DEFAULT_BUSINESS_DETAILS: BusinessDetails = {
+  legalName: "",
+  address: "",
+  email: "mangostateam@gmail.com",
+  phone: "",
+  supportHours: "",
+  gstin: "",
+  grievanceOfficerName: "",
+  grievanceOfficerDesignation: "",
+  grievanceOfficerEmail: "",
+  grievanceOfficerPhone: "",
+  jurisdictionCity: "",
+};
+
+// ============================================================
 // CUSTOMER SUPPORT
 // ============================================================
 
@@ -445,3 +520,27 @@ export const CANCEL_REASONS = [
   "Delivery date is too late",
   "Other",
 ];
+
+// ============================================================
+// ORDER STATUS STEPS (Admin → Orders)
+// ============================================================
+
+type OrderStatusName = "pending" | "shipped" | "delivered" | "cancelled";
+
+/**
+ * The status changes an admin may make. Delivered and Cancelled are final
+ * (after delivery, returns / exchanges take over).
+ *   Processing → Shipped | Cancelled (stock and coupon use given back)
+ *   Shipped    → Delivered | Cancelled = returned to us (RTO): stock and
+ *                coupon use given back
+ */
+export const ORDER_STATUS_STEPS: Record<OrderStatusName, readonly OrderStatusName[]> = {
+  pending: ["shipped", "cancelled"],
+  shipped: ["delivered", "cancelled"],
+  delivered: [],
+  cancelled: [],
+};
+
+export function canChangeOrderStatus(from: OrderStatusName, to: OrderStatusName): boolean {
+  return ORDER_STATUS_STEPS[from].includes(to);
+}

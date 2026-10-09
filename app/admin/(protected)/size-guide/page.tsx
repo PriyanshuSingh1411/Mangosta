@@ -33,7 +33,7 @@ export default function AdminSizeGuidePage() {
     return (
       <div>
         <p className="label-technical mb-2">STOREFRONT</p>
-        <h1 className="font-display text-2xl tracking-tight text-bone sm:text-3xl">Size Guide</h1>
+        <h1 className="type-heading text-bone">Size Guide</h1>
         <p className="mt-8 text-sm text-stone">{error ?? "Loading…"}</p>
       </div>
     );
@@ -61,7 +61,7 @@ export default function AdminSizeGuidePage() {
   return (
     <div className="max-w-4xl">
       <p className="label-technical mb-2">STOREFRONT</p>
-      <h1 className="mb-3 font-display text-2xl tracking-tight text-bone sm:text-3xl">Size Guide</h1>
+      <h1 className="mb-3 type-heading text-bone">Size Guide</h1>
       <p className="mb-8 max-w-2xl text-sm leading-relaxed text-stone">
         One chart per category. A &ldquo;Size guide&rdquo; link appears next to the size
         buttons on product pages once a category&apos;s chart has at least one row.

@@ -18,9 +18,10 @@ import Image from "next/image";
 
 import { useCartStore } from "@/app/store/useCartStore";
 import { useProducts } from "@/app/lib/useProducts";
-import { formatPrice, getProductSalePrice, hasProductDiscount, getProductStrikethroughPrice } from "@/app/data/productTypes";
+import { formatPrice, getProductSalePrice, hasProductDiscount, getProductStrikethroughPrice, getProductSavingsPercent } from "@/app/data/productTypes";
 import type { Product } from "@/app/data/productTypes";
 import { trackEngagement } from "@/app/lib/trackEngagement";
+import { useIsClient } from "@/app/lib/useBrowserValue";
 
 // ============================================================================
 // TYPES
@@ -137,24 +138,20 @@ export default function SearchOverlay() {
 
   const [recentSearches, setRecentSearches] =
     useState<string[]>([]);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsClient();
 
   // =========================================================================
-  // INITIALIZATION: Load recent searches on mount and when search opens
+  // INITIALIZATION: Load recent searches each time the search opens
+  // (adjusted while rendering, so they're there in the first frame)
   // =========================================================================
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isSearchOpen || !mounted) {
-      return;
-    }
-
-    const saved = getRecentSearchesFromStorage();
-    setRecentSearches(saved);
-  }, [isSearchOpen, mounted]);
+  const [recentLoadedForOpen, setRecentLoadedForOpen] = useState(false);
+  if (isSearchOpen && mounted && !recentLoadedForOpen) {
+    setRecentLoadedForOpen(true);
+    setRecentSearches(getRecentSearchesFromStorage());
+  } else if (!isSearchOpen && recentLoadedForOpen) {
+    setRecentLoadedForOpen(false);
+  }
 
   // =========================================================================
   // SAVE SEARCH TO RECENT
@@ -927,16 +924,16 @@ useEffect(() => {
 
                                   <div className="mt-1">
                                     {hasProductDiscount(product) && getProductStrikethroughPrice(product) && (
-                                      <p className="font-mono text-[10px] text-stone-dark line-through">
+                                      <p className="font-body tabular-nums text-[10px] text-stone-dark line-through">
                                         {formatPrice(getProductStrikethroughPrice(product) || 0)}
                                       </p>
                                     )}
-                                    <p className={`font-mono text-[11px] ${hasProductDiscount(product) ? "text-mango font-semibold" : "text-bone-dim"}`}>
+                                    <p className={`type-price text-[11px] ${hasProductDiscount(product) ? "text-mango font-semibold" : "text-bone-dim"}`}>
                                       {formatPrice(getProductSalePrice(product))}
                                     </p>
-                                    {hasProductDiscount(product) && (
-                                      <p className="text-[9px] text-mango font-semibold mt-0.5">
-                                        {Math.round(Number(product.discountPercent) || 0)}% OFF
+                                    {getProductSavingsPercent(product) !== null && (
+                                      <p className="mt-1 inline-block rounded-sm bg-mango/10 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-mango">
+                                        Save {getProductSavingsPercent(product)}%
                                       </p>
                                     )}
                                   </div>

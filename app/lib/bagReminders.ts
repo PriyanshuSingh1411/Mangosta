@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getStoreDb, getSiteUrl } from "@/app/lib/db";
-import { getOrders, getProducts } from "@/app/lib/dataStore";
+import { getProducts, hasOrderSince } from "@/app/lib/dataStore";
 import { getStoreConfig } from "@/app/lib/storeConfig";
 import type { AuthUser } from "@/app/lib/auth/session";
 import {
@@ -11,6 +11,12 @@ import {
   storeEmailProductRow,
 } from "@/app/lib/auth/mail";
 import { getLineImage } from "@/app/data/productTypes";
+import {
+  getOptedOutEmails,
+  marketingEmailHeaders,
+  unsubscribeFooterHtml,
+  unsubscribeFooterText,
+} from "@/app/lib/emailPreferences";
 
 // Abandoned-bag reminders.
 //   - Signed-in customers' bags are copied to the "carts" collection
@@ -19,6 +25,10 @@ import { getLineImage } from "@/app/data/productTypes";
 //     admin "Send reminders now" button, every bag untouched for at least
 //     the configured hours gets ONE reminder email. Changing the bag again
 //     makes it eligible for a new reminder later.
+//   - Reminders are marketing: they go only to customers who ticked "New
+//     drops & editorial updates" on their account and haven't unsubscribed.
+//     Every reminder has an unsubscribe link. Bags of other customers are
+//     marked as handled (skippedReason) and not emailed.
 
 export interface SavedCartLine {
   productId: string;
@@ -34,6 +44,14 @@ type CartDocument = {
   lines: SavedCartLine[];
   updatedAt: string;
   remindedAt: string | null;
+  /** Set when the bag was handled without an email (e.g. no consent). */
+  skippedReason?: string;
+};
+
+type ConsentUser = {
+  id: string;
+  email: string;
+  preferences?: { marketingEmails?: boolean };
 };
 
 type JobRunDocument = {
@@ -46,6 +64,8 @@ export interface BagReminderResult {
   checked: number;
   sent: number;
   skipped: number;
+  /** Of the skipped: customers who haven't opted in to marketing emails. */
+  noConsent: number;
   failed: number;
   note: string;
 }
@@ -85,6 +105,7 @@ export async function saveCustomerCart(user: AuthUser, lines: SavedCartLine[]): 
         updatedAt: new Date().toISOString(),
         remindedAt: null,
       },
+      $unset: { skippedReason: "" },
     },
     { upsert: true }
   );
@@ -106,7 +127,7 @@ export async function getBagReminderStats(): Promise<{
 }
 
 export async function runBagReminders(): Promise<BagReminderResult> {
-  const result: BagReminderResult = { checked: 0, sent: 0, skipped: 0, failed: 0, note: "" };
+  const result: BagReminderResult = { checked: 0, sent: 0, skipped: 0, noConsent: 0, failed: 0, note: "" };
   const config = await getStoreConfig("emailAutomation");
   const database = await db();
 
@@ -119,18 +140,31 @@ export async function runBagReminders(): Promise<BagReminderResult> {
     const carts = database.collection<CartDocument>("carts");
     const due = await carts.find({ remindedAt: null, updatedAt: { $lte: cutoff } }).toArray();
 
-    const [products, orders] = await Promise.all([getProducts(), getOrders()]);
+    const products = await getProducts();
     const productsById = new Map(products.map((product) => [product.id, product]));
     const siteUrl = getSiteUrl();
+
+    // Marketing consent of the customers whose bags are due.
+    const users = await database
+      .collection<ConsentUser>("users")
+      .find(
+        { id: { $in: due.map((cart) => cart._id) } },
+        { projection: { _id: 0, id: 1, email: 1, preferences: 1 } }
+      )
+      .toArray();
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    const optedOut = await getOptedOutEmails(
+      due.map((cart) => usersById.get(cart._id)?.email || cart.email)
+    );
 
     for (const cart of due) {
       result.checked += 1;
 
       // Bought since the bag was saved? Then there is nothing to remind.
-      const ordered = orders.some(
-        (order) =>
-          order.customer.email.trim().toLowerCase() === cart.email &&
-          order.createdAt >= cart.updatedAt
+      // (Looks up only this customer's orders.)
+      const ordered = await hasOrderSince(
+        { userId: cart._id, email: cart.email },
+        cart.updatedAt
       );
 
       const items = cart.lines
@@ -140,6 +174,26 @@ export async function runBagReminders(): Promise<BagReminderResult> {
       if (ordered || items.length === 0) {
         await carts.deleteOne({ _id: cart._id });
         result.skipped += 1;
+        continue;
+      }
+
+      // Only customers who opted in to marketing emails (and haven't
+      // unsubscribed since) get a reminder.
+      const user = usersById.get(cart._id);
+      const to = String(user?.email || cart.email).trim().toLowerCase();
+
+      if (user?.preferences?.marketingEmails !== true || optedOut.has(to)) {
+        await carts.updateOne(
+          { _id: cart._id },
+          {
+            $set: {
+              remindedAt: new Date().toISOString(),
+              skippedReason: "no-marketing-consent",
+            },
+          }
+        );
+        result.skipped += 1;
+        result.noConsent += 1;
         continue;
       }
 
@@ -158,9 +212,9 @@ export async function runBagReminders(): Promise<BagReminderResult> {
 
       try {
         await sendStoreEmail({
-          to: cart.email,
+          to,
           subject: config.abandonedBagSubject,
-          text: `${config.abandonedBagBody}\n\nYour bag: ${siteUrl}/bag`,
+          text: `${config.abandonedBagBody}\n\nYour bag: ${siteUrl}/bag\n\n${unsubscribeFooterText(to)}`,
           html: storeEmailLayout({
             eyebrow: "MANGOSTA / YOUR BAG",
             heading: config.abandonedBagHeading || "YOUR BAG IS WAITING",
@@ -168,7 +222,9 @@ export async function runBagReminders(): Promise<BagReminderResult> {
             contentHtml: rows + more,
             buttonText: config.abandonedBagButtonText,
             buttonUrl: `${siteUrl}/bag`,
+            footerHtml: unsubscribeFooterHtml(to),
           }),
+          headers: marketingEmailHeaders(to),
         });
 
         await carts.updateOne({ _id: cart._id }, { $set: { remindedAt: new Date().toISOString() } });
@@ -182,7 +238,11 @@ export async function runBagReminders(): Promise<BagReminderResult> {
     result.note =
       result.checked === 0
         ? `No bags have been waiting ${config.abandonedBagDelayHours}+ hours.`
-        : `Sent ${result.sent} reminder(s).`;
+        : `Sent ${result.sent} reminder(s).${
+            result.noConsent > 0
+              ? ` ${result.noConsent} customer(s) skipped: not opted in to marketing emails.`
+              : ""
+          }`;
   }
 
   await database

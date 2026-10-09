@@ -30,27 +30,6 @@ export function validateInventoryValue(inventory: unknown): { valid: boolean; er
 }
 
 /**
- * Validates a product's inventory against requested quantity
- * Returns error if quantity exceeds available stock
- */
-export function validateInventory(
-  product: Product,
-  quantity: number
-): { valid: boolean; error?: string } {
-  const requestedQty = Math.max(1, quantity);
-  const availableInventory = Math.max(0, product.inventory || 0);
-
-  if (requestedQty > availableInventory) {
-    return {
-      valid: false,
-      error: `${product.name} only has ${availableInventory} in stock (you requested ${requestedQty}).`,
-    };
-  }
-
-  return { valid: true };
-}
-
-/**
  * Validates all product pricing and inventory fields
  * STRICT validation (rejects invalid values, doesn't normalize)
  */

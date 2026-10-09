@@ -8,6 +8,8 @@ import { useCartStore } from "@/app/store/useCartStore";
 import { useCursorHover } from "@/app/lib/useCursorHover";
 import { useAuth } from "@/app/components/AuthProvider";
 import NotificationBell from "@/app/components/NotificationBell";
+import { useIsClient } from "@/app/lib/useBrowserValue";
+import { setDarkMode, useIsDarkMode } from "@/app/lib/useTheme";
 
 const NAV_LINKS = [
   { label: "SHOP", href: "/shop" },
@@ -19,8 +21,9 @@ const NAV_LINKS = [
 
 export default function Navigation() {
   const [scrolled, setScrolled] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  // The bag count and theme live in this browser: shown after hydration.
+  const hasMounted = useIsClient();
+  const darkMode = useIsDarkMode();
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -45,13 +48,10 @@ export default function Navigation() {
   const shopCursor = useCursorHover("shop", "SHOP");
   const viewCursor = useCursorHover("view", "VIEW");
 
+  // Keep the page colours in step with the saved theme.
   useEffect(() => {
-    setHasMounted(true);
-    const stored = window.localStorage.getItem("mangosta-theme");
-    const isDark = stored !== "light";
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle("light-theme", !isDark);
-  }, []);
+    document.documentElement.classList.toggle("light-theme", !darkMode);
+  }, [darkMode]);
 
   const requestLogout = () => {
     setIsLogoutOpen(true);
@@ -73,10 +73,7 @@ export default function Navigation() {
   };
 
   const toggleTheme = () => {
-    const nextDark = !darkMode;
-    setDarkMode(nextDark);
-    document.documentElement.classList.toggle("light-theme", !nextDark);
-    window.localStorage.setItem("mangosta-theme", nextDark ? "dark" : "light");
+    setDarkMode(!darkMode);
   };
 
   useEffect(() => {
@@ -308,11 +305,11 @@ export default function Navigation() {
                 </p>
                 <h2
                   id="logout-title"
-                  className="max-w-md font-display text-4xl font-semibold leading-[0.95] tracking-tight text-bone sm:text-6xl"
+                  className="max-w-md type-title text-bone"
                 >
                   WAIT.
                   <br />
-                  YOU&apos;RE REALLY LEAVING?
+                  YOU'RE REALLY LEAVING?
                 </h2>
 
                 <p
@@ -325,7 +322,7 @@ export default function Navigation() {
 
                 <div className="my-8 h-px w-full bg-line" />
 
-                <p className="mb-5 font-display text-xl tracking-tight text-bone sm:text-2xl">
+                <p className="mb-5 type-heading text-bone">
                   One last question...
                 </p>
 
@@ -336,7 +333,7 @@ export default function Navigation() {
                     disabled={isLoggingOut}
                     className="group flex min-h-12 flex-1 items-center justify-center gap-3 border border-bone bg-bone px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-void transition-all duration-300 hover:bg-transparent hover:text-bone disabled:cursor-wait disabled:opacity-60"
                   >
-                    {isLoggingOut ? "SEE YOU SOON..." : "YES, I&apos;M LEAVING"}
+                    {isLoggingOut ? "SEE YOU SOON..." : "YES, I'M LEAVING"}
                     {!isLoggingOut && <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>}
                   </button>
 
@@ -351,7 +348,7 @@ export default function Navigation() {
                 </div>
 
                 <p className="mt-5 text-center font-mono text-[9px] tracking-[0.16em] text-stone">
-                  YOUR SESSION ENDS. YOUR STYLE DOESN&apos;T.
+                  YOUR SESSION ENDS. YOUR STYLE DOESN'T.
                 </p>
               </div>
             </motion.div>

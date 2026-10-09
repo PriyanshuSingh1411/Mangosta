@@ -126,6 +126,53 @@ export function isVariantAvailable(
   return getVariantStock(product, colorName, size) > 0;
 }
 
+// ============================================================
+// PUBLIC STOCK (what shoppers' browsers receive)
+// ============================================================
+
+/**
+ * The storefront never reveals more stock than this: counts above it are
+ * sent as this number ("10 or more"), so exact stock levels stay private.
+ * It is also the most of one size a customer can buy in one order.
+ */
+export const PUBLIC_STOCK_CAP = 10;
+export const MAX_PER_SIZE_PER_ORDER = PUBLIC_STOCK_CAP;
+
+/** "Only N left" is shown at or below this. */
+export const LOW_STOCK_THRESHOLD = 3;
+
+function capStock(value: unknown): number {
+  return Math.min(PUBLIC_STOCK_CAP, Math.max(0, Math.floor(Number(value) || 0)));
+}
+
+/**
+ * The product as the storefront receives it: stock numbers capped at
+ * PUBLIC_STOCK_CAP (exact below it, so "Only 2 left" and sold-out sizes
+ * still work). Everything else is unchanged. Server code that changes
+ * stock always reads the real numbers from the database.
+ */
+export function toPublicProduct<T extends Product>(product: T): T {
+  const variantStock = product.variantStock
+    ? Object.fromEntries(
+        Object.entries(product.variantStock).map(([key, value]) => [key, capStock(value)])
+      )
+    : product.variantStock;
+
+  return {
+    ...product,
+    inventory: capStock(product.inventory),
+    ...(variantStock ? { variantStock } : {}),
+  };
+}
+
+/** "Sold out", "Only N left" (at or below LOW_STOCK_THRESHOLD) or "In stock". */
+export function stockLabel(stock: number): { kind: "out" | "low" | "in"; text: string } {
+  const units = Math.max(0, Math.floor(Number(stock) || 0));
+  if (units <= 0) return { kind: "out", text: "Sold out" };
+  if (units <= LOW_STOCK_THRESHOLD) return { kind: "low", text: `Only ${units} left` };
+  return { kind: "in", text: "In stock" };
+}
+
 /** Sizes to offer for a product (ONE SIZE when the list is empty). */
 export function getProductSizes(product: Pick<Product, "sizes">): string[] {
   return product.sizes.length > 0 ? product.sizes : [ONE_SIZE];
@@ -229,23 +276,26 @@ export function hasProductDiscount(product: ProductPricing): boolean {
 }
 
 /**
- * DEPRECATED: Use priceValidation.ts for strict validation
- * These are calculation helpers, not validators
- * @deprecated Use validateProductPricing() from app/lib/priceValidation.ts
+ * The "SAVE x%" shown to shoppers: how much lower the sale price is than
+ * the CROSSED-OUT price next to it (so the two numbers always agree),
+ * rounded to a whole percent. null when nothing is crossed out.
+ *
+ *   ₹3,299 crossed out, ₹2,609.10 → 21  (even though the admin discount
+ *   is 10% off the ₹2,899 base price)
  */
-export function validateDiscountPercent(discount: unknown): number {
-  const value = Number(discount) || 0;
-  return Math.min(100, Math.max(0, value));
+export function getProductSavingsPercent(product: ProductPricing): number | null {
+  const wasPrice = getProductStrikethroughPrice(product);
+  if (!wasPrice) return null;
+
+  const percent = Math.round(((wasPrice - getProductSalePrice(product)) / wasPrice) * 100);
+  return percent > 0 ? percent : null;
 }
 
-/**
- * DEPRECATED: Use priceValidation.ts for strict validation
- * These are calculation helpers, not validators
- * @deprecated Use validateProductPricing() from app/lib/priceValidation.ts
- */
-export function validatePrice(price: unknown): number {
-  const value = Number(price) || 0;
-  return Math.max(0, value);
+/** Saving per unit compared with the crossed-out price (0 when none). */
+export function getProductSavingsAmount(product: ProductPricing): number {
+  const wasPrice = getProductStrikethroughPrice(product);
+  if (!wasPrice) return 0;
+  return Number(Math.max(0, wasPrice - getProductSalePrice(product)).toFixed(2));
 }
 
 export function slugify(name: string): string {

@@ -14,6 +14,7 @@ import {
   getProductSalePrice,
   hasProductDiscount,
   getProductStrikethroughPrice,
+  getProductSavingsPercent,
 } from "@/app/data/productTypes";
 
 export default function BagPage() {
@@ -49,7 +50,7 @@ export default function BagPage() {
 />
       <Navigation />
 
-      <main className="min-h-screen bg-void px-6 pb-20 pt-28 sm:px-10 lg:px-12">
+      <main className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <div className="mx-auto max-w-7xl">
 
           {/* HEADER */}
@@ -59,7 +60,7 @@ export default function BagPage() {
                 SHOPPING BAG
               </p>
 
-              <h1 className="font-display text-4xl tracking-tight text-bone sm:text-5xl">
+              <h1 className="type-title text-bone">
                 YOUR BAG
               </h1>
             </div>
@@ -96,12 +97,12 @@ export default function BagPage() {
                   {lines.map((line) => (
                     <article
                       key={line.lineId}
-                      className="flex gap-5 border-b border-line py-6 first:pt-0 sm:gap-7"
+                      className="flex gap-4 border-b border-line py-6 first:pt-0 sm:gap-7"
                     >
                       {/* IMAGE */}
                       <Link
                         href={`/product/${line.product.slug}`}
-                        className="relative h-40 w-28 shrink-0 overflow-hidden bg-charcoal sm:h-52 sm:w-36"
+                        className="relative h-32 w-24 shrink-0 overflow-hidden bg-charcoal min-[400px]:h-40 min-[400px]:w-28 sm:h-52 sm:w-36"
                       >
                         {getLineImage(line.product, line.color) &&
                         !failedLines.has(line.lineId) ? (
@@ -147,18 +148,18 @@ export default function BagPage() {
 
                             <div className="shrink-0 text-right">
                               {getProductStrikethroughPrice(line.product) && (
-                                <p className="font-mono text-xs text-stone-dark line-through">
+                                <p className="font-body tabular-nums text-xs text-stone-dark line-through">
                                   {formatPrice((getProductStrikethroughPrice(line.product) || 0) * line.quantity)}
                                 </p>
                               )}
-                              <p className={`font-mono text-sm ${hasProductDiscount(line.product) ? "text-mango font-semibold" : "text-bone"}`}>
+                              <p className={`type-price text-sm ${hasProductDiscount(line.product) ? "text-mango font-semibold" : "text-bone"}`}>
                                 {formatPrice(
                                   getProductSalePrice(line.product) * line.quantity
                                 )}
                               </p>
-                              {hasProductDiscount(line.product) && (
-                                <p className="mt-1 text-[10px] tracking-wider text-mango bg-mango/10 px-2 py-0.5 rounded inline-block">
-                                  {Math.round(Number(line.product.discountPercent) || 0)}% OFF
+                              {getProductSavingsPercent(line.product) !== null && (
+                                <p className="mt-1 inline-block rounded-sm bg-mango/10 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-mango">
+                                  Save {getProductSavingsPercent(line.product)}%
                                 </p>
                               )}
                             </div>
@@ -166,7 +167,8 @@ export default function BagPage() {
                         </div>
 
                         {/* QUANTITY + REMOVE */}
-                        <div className="mt-6 flex items-center justify-between">
+                        {/* wraps REMOVE under the stepper on very narrow phones */}
+                        <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                           <div className="flex items-center border border-line-strong">
                             <button
                               type="button"
@@ -241,7 +243,7 @@ export default function BagPage() {
                       SUBTOTAL
                     </span>
 
-                    <span className="font-mono text-sm text-bone">
+                    <span className="type-price text-sm text-bone">
                       {formatPrice(currentSubtotal)}
                     </span>
                   </div>
@@ -264,7 +266,7 @@ export default function BagPage() {
                     TOTAL
                   </span>
 
-                  <span className="font-mono text-lg text-bone">
+                  <span className="type-price text-lg text-bone">
                     {formatPrice(currentSubtotal)}
                   </span>
                 </div>

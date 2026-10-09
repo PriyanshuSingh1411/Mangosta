@@ -77,7 +77,7 @@ export default function AdminReviewsPage() {
   return (
     <div className="max-w-5xl">
       <p className="label-technical mb-2">CUSTOMERS</p>
-      <h1 className="mb-3 font-display text-2xl tracking-tight text-bone sm:text-3xl">Reviews</h1>
+      <h1 className="mb-3 type-heading text-bone">Reviews</h1>
       <p className="mb-8 max-w-2xl text-sm leading-relaxed text-stone">
         Only customers whose order with the product was delivered can review it, and reviews
         appear straight away. Hide a review to remove it from the shop without deleting it.

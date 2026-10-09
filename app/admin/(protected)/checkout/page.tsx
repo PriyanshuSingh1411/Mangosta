@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { shippingSettingsWarnings } from "@/app/data/checkoutWarnings";
+import { getProductSalePrice, type Product } from "@/app/data/productTypes";
 
 type ShippingRule = {
   id: string;
@@ -29,7 +31,8 @@ type CheckoutSettings = {
 const DEFAULT_SETTINGS: CheckoutSettings = {
   enabled: true,
   defaultShipping: 12,
-  freeShippingEnabled: true,
+  // Off until a real threshold is set (a tiny threshold makes everything free).
+  freeShippingEnabled: false,
   freeShippingThreshold: 10,
   rules: [],
   progressRewards: [
@@ -48,6 +51,31 @@ export default function AdminCheckoutPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Lowest product price, to spot a free-shipping threshold every order reaches.
+  const [cheapestPrice, setCheapestPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/products", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((products: Product[]) => {
+        if (cancelled || !Array.isArray(products) || products.length === 0) return;
+        const prices = products
+          .map((product) => getProductSalePrice(product))
+          .filter((price) => price > 0);
+        if (prices.length > 0) setCheapestPrice(Math.min(...prices));
+      })
+      .catch(() => undefined); // warnings just skip this check
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Settings that can never take effect, shown live while editing.
+  const warnings = useMemo(
+    () => shippingSettingsWarnings(settings, cheapestPrice),
+    [settings, cheapestPrice]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +221,7 @@ export default function AdminCheckoutPage() {
     return (
       <div>
         <p className="label-technical mb-2">CHECKOUT</p>
-        <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-bone">
+        <h1 className="type-heading text-bone">
           Checkout
         </h1>
         <p className="mt-8 text-sm text-stone">Loading…</p>
@@ -204,7 +232,7 @@ export default function AdminCheckoutPage() {
   return (
     <div>
       <p className="label-technical mb-2">CHECKOUT</p>
-      <h1 className="mb-3 font-display text-2xl sm:text-3xl tracking-tight text-bone">
+      <h1 className="mb-3 type-heading text-bone">
         Checkout
       </h1>
       <p className="mb-10 max-w-2xl text-sm leading-relaxed text-stone">
@@ -213,10 +241,21 @@ export default function AdminCheckoutPage() {
       </p>
 
       <div className="flex max-w-3xl flex-col gap-10">
+        {warnings.length > 0 && (
+          <div role="status" className="border border-mango/40 bg-mango/5 px-5 py-4">
+            <p className="label-technical mb-2 text-mango">CHECK THESE SETTINGS</p>
+            <ul className="flex list-disc flex-col gap-1.5 pl-4 text-xs leading-relaxed text-bone-dim">
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <section className="border border-line-strong p-6 sm:p-8">
           <div className="mb-6">
             <p className="label-technical mb-2">SHIPPING</p>
-            <h2 className="font-display text-xl text-bone">
+            <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">
               General shipping settings
             </h2>
           </div>
@@ -254,7 +293,7 @@ export default function AdminCheckoutPage() {
         <section className="border border-line-strong p-6 sm:p-8">
           <div className="mb-6">
             <p className="label-technical mb-2">FREE SHIPPING</p>
-            <h2 className="font-display text-xl text-bone">
+            <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">
               Free shipping threshold
             </h2>
           </div>
@@ -290,7 +329,7 @@ export default function AdminCheckoutPage() {
                 className={inputClass}
               />
               <span className="text-xs text-stone-dark">
-                Example: enter 10 and a ₹10+ cart gets FREE shipping.
+                Example: enter 1999 and carts of ₹1,999 or more ship free.
               </span>
             </label>
           </div>
@@ -300,7 +339,7 @@ export default function AdminCheckoutPage() {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <p className="label-technical mb-2">SHIPPING RULES</p>
-              <h2 className="font-display text-xl text-bone">
+              <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">
                 Order-based shipping
               </h2>
               <p className="mt-2 text-xs leading-relaxed text-stone">
@@ -409,7 +448,7 @@ export default function AdminCheckoutPage() {
           <div className="relative">
             <div className="mb-7">
               <p className="label-technical mb-2 text-mango">CHECKOUT REWARDS</p>
-              <h2 className="font-display text-2xl text-bone">Unlock Progress Bar</h2>
+              <h2 className="font-display text-lg tracking-tight text-bone sm:text-xl">Unlock Progress Bar</h2>
               <p className="mt-2 max-w-2xl text-xs leading-relaxed text-stone">
                 Create up to three cart-value milestones. When a customer reaches a milestone, its percentage coupon is unlocked and automatically applied at checkout. These rewards are managed here and do not use the regular Coupons section.
               </p>

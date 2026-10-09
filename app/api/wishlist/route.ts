@@ -11,8 +11,17 @@ import {
   moveWishlistItem,
   setWishlistItem,
 } from "@/app/lib/wishlist";
+import { PUBLIC_STOCK_CAP } from "@/app/data/productTypes";
 
 export const dynamic = "force-dynamic";
+
+/** Saved items as sent to the browser: stock at save time capped like everywhere else. */
+function publicItems<T extends { inventoryAtSave: number }>(items: T[]): T[] {
+  return items.map((item) => ({
+    ...item,
+    inventoryAtSave: Math.min(PUBLIC_STOCK_CAP, item.inventoryAtSave),
+  }));
+}
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -20,7 +29,7 @@ export async function GET() {
 
   return NextResponse.json({
     productIds: await getWishlist(user.id),
-    items: await getWishlistItems(user.id),
+    items: publicItems(await getWishlistItems(user.id)),
     folders: await getWishlistFolders(user.id),
   });
 }
@@ -46,7 +55,7 @@ export async function POST(req: NextRequest) {
     const productId = String(body?.productId || "");
     const folder = String(body?.folder || "");
     if (!productId || !folder) return NextResponse.json({ error: "Product and folder are required." }, { status: 400 });
-    return NextResponse.json({ items: await moveWishlistItem(user.id, productId, folder) });
+    return NextResponse.json({ items: publicItems(await moveWishlistItem(user.id, productId, folder)) });
   }
 
   if (action === "create-folder") {

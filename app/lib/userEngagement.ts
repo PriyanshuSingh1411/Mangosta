@@ -86,9 +86,13 @@ function cleanMetadata(
   }
 
   const result: Record<string, unknown> = {};
+  // At most 20 fields per event (browser events are already limited to
+  // their own field list in app/lib/engagementSchema.ts).
+  const MAX_FIELDS = 20;
 
   for (const [key, value] of Object.entries(metadata)) {
     if (!key.trim()) continue;
+    if (Object.keys(result).length >= MAX_FIELDS) break;
 
     if (
       typeof value === "string" ||

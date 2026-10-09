@@ -11,6 +11,7 @@ import { getCompleteTheLook, getProductSalePrice } from "@/app/data/productTypes
 import { getPublishedReviews } from "@/app/lib/reviews";
 import { summarizeReviews } from "@/app/data/storeTypes";
 import { getStoreConfig } from "@/app/lib/storeConfig";
+import { jsonLdString } from "@/app/lib/jsonLd";
 
 // Products can be added/edited/deleted via the admin panel at any time, so:
 // - generateStaticParams seeds the known slugs at build time for speed, but
@@ -104,13 +105,13 @@ return (
       }}
     />
 
-    {/* eslint-disable-next-line react/no-danger */}
+    {/* Search-engine data; jsonLdString escapes "<" so text can't end the tag. */}
     <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }}
       />
       <Navigation />
-      <main id="main-content"className="min-h-screen bg-void px-5 pb-28 pt-24 sm:px-8 sm:pt-28">
+      <main id="main-content" className="min-h-screen bg-void px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
         <div className="mx-auto max-w-[1600px]">
           <nav aria-label="Breadcrumb" className="mb-10 flex items-center gap-2 text-xs text-stone">
             <Link href="/" className="hover:text-bone">

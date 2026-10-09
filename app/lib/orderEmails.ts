@@ -210,12 +210,18 @@ export async function sendOrderStatusEmail(order: Order, kind: OrderEmailKind): 
     storeEmailLayout({
       eyebrow: "MANGOSTA / ORDER CANCELLED",
       heading: "ORDER CANCELLED",
-      intro: `Hi ${name},\n${byCustomer ? `As you asked, we've cancelled order ${order.id}.` : `Your order ${order.id} has been cancelled.`}${refundLine}`,
+      intro: `Hi ${name},\n${
+        byCustomer
+          ? `As you asked, we've cancelled order ${order.id}.`
+          : order.returnedToSender
+            ? `Your order ${order.id} couldn't be delivered and came back to us, so it has been cancelled.`
+            : `Your order ${order.id} has been cancelled.`
+      }${refundLine}`,
       contentHtml: itemsHtml(order, siteUrl) + helpHtml(),
       buttonText: "CONTINUE SHOPPING",
       buttonUrl: `${siteUrl}/shop`,
     }),
-    `Hi ${name},\n\nOrder ${order.id} has been cancelled.${refundLine}\n\n${itemsText(order)}\n\nShop again: ${siteUrl}/shop`,
+    `Hi ${name},\n\nOrder ${order.id} ${order.returnedToSender ? "couldn't be delivered and came back to us, so it has been cancelled" : "has been cancelled"}.${refundLine}\n\n${itemsText(order)}\n\nShop again: ${siteUrl}/shop`,
     "cancelled"
   );
 }

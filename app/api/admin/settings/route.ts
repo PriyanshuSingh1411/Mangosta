@@ -12,18 +12,6 @@ import type {
   SiteSettings,
 } from "@/app/lib/dataStore";
 
-const FONT_STYLES = [
-  "display",
-  "body",
-  "technical",
-  "mono",
-] as const;
-
-const TRANSITIONS = [
-  "fade",
-  "slide",
-] as const;
-
 function isRecord(
   value: unknown
 ): value is Record<string, unknown> {

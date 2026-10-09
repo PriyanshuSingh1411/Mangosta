@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getStoreDb, shortId } from "@/app/lib/db";
-import { getOrders } from "@/app/lib/dataStore";
+import { getOrdersForCustomer } from "@/app/lib/dataStore";
 import type { AuthUser } from "@/app/lib/auth/session";
 import { summarizeReviews } from "@/app/data/storeTypes";
 import type { PublicReview, Review, ReviewSummary } from "@/app/data/storeTypes";
@@ -157,12 +157,10 @@ export async function getReviewEligibility(
   const existing = await collection.findOne({ productId, userId: user.id });
   if (existing) return { canReview: false, reason: "already_reviewed" };
 
-  const email = user.email.trim().toLowerCase();
-  const orders = await getOrders();
+  const orders = await getOrdersForCustomer({ userId: user.id, email: user.email });
 
   for (const order of orders) {
     if (order.status !== "delivered") continue;
-    if (order.customer.email.trim().toLowerCase() !== email) continue;
 
     const line = order.lines.find((item) => item.productId === productId);
     if (line) {

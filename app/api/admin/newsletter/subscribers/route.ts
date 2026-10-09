@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
+import { isAuthenticated } from "@/app/lib/adminAuth";
 import { getSubscribers } from "@/app/lib/newsletterStore";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Subscriber emails are private: admin only, like every other admin route.
+  if (!(await isAuthenticated())) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   try {
     const subscribers = await getSubscribers();
 

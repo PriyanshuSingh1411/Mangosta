@@ -1,19 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useSiteStore } from "@/app/store/useSiteStore";
+
+const TOUCH_QUERY = "(pointer: coarse), (hover: none)";
+
+function subscribeToPointerType(onChange: () => void): () => void {
+  const query = window.matchMedia(TOUCH_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
 
 export default function CustomCursor() {
   const dotRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const cursorVariant = useSiteStore((s) => s.cursorVariant);
   const cursorLabel = useSiteStore((s) => s.cursorLabel);
-  const [isTouch, setIsTouch] = useState(true);
+  // Touch screens (and the server render) get no custom cursor.
+  const isTouch = useSyncExternalStore(
+    subscribeToPointerType,
+    () => window.matchMedia(TOUCH_QUERY).matches,
+    () => true
+  );
 
   useEffect(() => {
-    const touch = window.matchMedia("(pointer: coarse), (hover: none)").matches;
-    setIsTouch(touch);
-    if (touch) return;
+    if (isTouch) return;
 
     let mouseX = 0;
     let mouseY = 0;
@@ -45,7 +56,7 @@ export default function CustomCursor() {
       window.removeEventListener("mousemove", onMove);
       cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [isTouch]);
 
   if (isTouch) return null;
 

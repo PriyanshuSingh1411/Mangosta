@@ -27,7 +27,34 @@ export default function PincodeCheck({ className = "" }: { className?: string })
     setError(null);
 
     try {
+      // Verify that this PIN code exists in India's postal directory first.
+      const postalResponse = await fetch(`https://api.postalpincode.in/pincode/${code}`, {
+        cache: "no-store",
+      });
+      if (!postalResponse.ok) {
+        throw new Error("Postal directory unavailable");
+      }
+
+      const postalData: Array<{
+        Status?: string;
+        Message?: string;
+        PostOffice?: Array<{ Name?: string; District?: string; State?: string }> | null;
+      }> = await postalResponse.json();
+      const postalEntry = postalData[0];
+      const exists =
+        postalEntry?.Status === "Success" &&
+        Array.isArray(postalEntry.PostOffice) &&
+        postalEntry.PostOffice.length > 0;
+
+      if (!exists) {
+        setResult(null);
+        setError("This PIN code does not exist. Please check and enter a valid PIN code.");
+        return;
+      }
+
+      // The PIN exists; now check Mangosta's delivery coverage and estimate.
       const response = await fetch(`/api/delivery/check?pincode=${code}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Delivery check failed");
       const data: CheckResponse = await response.json();
       setEnabled(data.enabled);
       setResult(data);
@@ -37,7 +64,8 @@ export default function PincodeCheck({ className = "" }: { className?: string })
         // storage unavailable — fine
       }
     } catch {
-      setError("Couldn't check right now. Please try again.");
+      setResult(null);
+      setError("We couldn't verify this PIN code right now. Please try again.");
     } finally {
       setChecking(false);
     }
